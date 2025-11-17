@@ -1,46 +1,75 @@
 const axios = require('axios');
 const logger = require('./logger');
 const xml2js = require('xml2js');
+const { retryWithBackoff } = require('./retryHelper');
 
 let plexApi;
 
-function init(config) {
-    plexApi = axios.create({
-        baseURL: config.plex_server_url,
+function createPlexClient(baseURL, token, accept = 'application/json', timeout = 600000) {
+    return axios.create({
+        baseURL,
         headers: {
-            'X-Plex-Token': config.plex_token,
-            'Accept': 'application/json',
+            'X-Plex-Token': token,
+            'Accept': accept
         },
-        timeout: 600000,
+        timeout
     });
 }
 
+function init(config) {
+    plexApi = createPlexClient(config.plex_server_url, config.plex_token);
+}
+
 async function fetchSessions() {
-    try {
-        const response = await plexApi.get('/status/sessions');
-        return response.data.MediaContainer.Metadata || [];
-    } catch (error) {
-        if (error.response) {
-            logger.error(`GET /status/sessions: ${error.response.status} ${error.response.statusText}`);
-        } else {
-            logger.error(`GET /status/sessions: ${error.message}`);
-        }
-        return [];
-    }
+    return retryWithBackoff(
+        async () => {
+            try {
+                const response = await plexApi.get('/status/sessions');
+                return response.data.MediaContainer.Metadata || [];
+            } catch (error) {
+                if (error.response) {
+                    logger.error(`GET /status/sessions: ${error.response.status} ${error.response.statusText}`);
+                    logger.debug(error.stack);
+                    throw new Error(`Plex API error: ${error.response.status} ${error.response.statusText}`);
+                } else {
+                    logger.error(`GET /status/sessions: ${error.message}`);
+                    logger.debug(error.stack);
+                    throw error;
+                }
+            }
+        },
+        3,
+        1000,
+        'fetchSessions'
+    );
 }
 
 async function fetchMetadata(ratingKey) {
-    try {
-        const response = await plexApi.get(`/library/metadata/${ratingKey}`);
-        return response.data.MediaContainer.Metadata[0];
-    } catch (error) {
-        if (error.response) {
-            logger.error(`GET /library/metadata/${ratingKey}: ${error.response.status} ${error.response.statusText}`);
-        } else {
-            logger.error(`GET /library/metadata/${ratingKey}: ${error.message}`);
-        }
-        return null;
-    }
+    return retryWithBackoff(
+        async () => {
+            try {
+                const response = await plexApi.get(`/library/metadata/${ratingKey}`);
+                const metadata = response.data.MediaContainer.Metadata[0];
+                if (!metadata) {
+                    throw new Error(`No metadata found for ratingKey ${ratingKey}`);
+                }
+                return metadata;
+            } catch (error) {
+                if (error.response) {
+                    logger.error(`GET /library/metadata/${ratingKey}: ${error.response.status} ${error.response.statusText}`);
+                    logger.debug(error.stack);
+                    throw new Error(`Plex metadata fetch failed: ${error.response.status}`);
+                } else {
+                    logger.error(`GET /library/metadata/${ratingKey}: ${error.message}`);
+                    logger.debug(error.stack);
+                    throw error;
+                }
+            }
+        },
+        3,
+        1000,
+        `fetchMetadata(${ratingKey})`
+    );
 }
 
 async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
@@ -66,13 +95,27 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
 }
 
 async function terminateTranscode(transcodeKey) {
-    await plexApi.delete(transcodeKey);
+    try {
+        await plexApi.delete(transcodeKey);
+        logger.debug(`Terminated transcode: ${transcodeKey}`);
+    } catch (error) {
+        logger.error(`Failed to terminate transcode ${transcodeKey}: ${error.message}`);
+        logger.debug(error.stack);
+        throw error;
+    }
 }
 
 async function terminateSession(sessionId, reason) {
-    await plexApi.get('/status/sessions/terminate', {
-        params: { sessionId, reason }
-    });
+    try {
+        await plexApi.get('/status/sessions/terminate', {
+            params: { sessionId, reason }
+        });
+        logger.debug(`Terminated session: ${sessionId}`);
+    } catch (error) {
+        logger.error(`Failed to terminate session ${sessionId}: ${error.message}`);
+        logger.debug(error.stack);
+        throw error;
+    }
 }
 
 async function getUserDetailsFromXml(xml) {
@@ -97,14 +140,11 @@ async function getUserDetailsFromXml(xml) {
 
 async function fetchManagedUserTokens() {
     try {
-        const plexTvApi = axios.create({
-            baseURL: 'https://plex.tv',
-            headers: {
-                'X-Plex-Token': plexApi.defaults.headers['X-Plex-Token'],
-                'Accept': 'application/xml',
-            },
-            timeout: 600000,
-        });
+        const plexTvApi = createPlexClient(
+            'https://plex.tv',
+            plexApi.defaults.headers['X-Plex-Token'],
+            'application/xml'
+        );
 
         const resourcesResponse = await plexTvApi.get('/api/resources');
         const parser = new xml2js.Parser();
@@ -128,11 +168,23 @@ async function fetchManagedUserTokens() {
 
     } catch (error) {
         if (error.response) {
-            logger.error(`Fetch managed tokens: ${error.response.status} ${error.response.statusText}`);
+            const status = error.response.status;
+            logger.error(`Fetch managed tokens: ${status} ${error.response.statusText}`);
+
+            // 404 is expected if no managed users - return empty
+            if (status === 404) {
+                logger.info('No managed users found (404 expected)');
+                return {};
+            }
+
+            // Auth or other errors should fail fast
+            logger.debug(error.stack);
+            throw new Error(`Managed user token fetch failed: ${status}`);
         } else {
             logger.error(`Fetch managed tokens: ${error.message}`);
+            logger.debug(error.stack);
+            throw error;
         }
-        return {};
     }
 }
 

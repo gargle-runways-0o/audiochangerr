@@ -35,6 +35,25 @@ docker run -d \
   audiochangerr
 ```
 
+## Environment Variables
+
+- `LOG_LEVEL`: Logging verbosity (default: `info`, options: `error`, `warn`, `info`, `debug`)
+
+Example:
+```bash
+LOG_LEVEL=debug npm start
+```
+
+Docker:
+```bash
+docker run -d \
+  --name audiochangerr \
+  -e LOG_LEVEL=debug \
+  -v /path/to/config:/config \
+  -p 4444:4444 \
+  audiochangerr
+```
+
 ## Configuration
 
 **Minimal setup** (`config.yaml`):
@@ -63,7 +82,10 @@ webhook:
   port: 4444
   host: "0.0.0.0"
   path: "/webhook"
+  secret: ""  # Optional: shared secret for authentication
 ```
+
+**Security**: Set `webhook.secret` to require `X-Webhook-Secret` header. Recommended for internet-exposed webhooks.
 
 See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for webhook configuration.
 
@@ -81,13 +103,15 @@ audio_selector:
 ```
 
 **Options**:
-- `codec`: ac3, aac, dts, truehd
-- `channels`: 2 (stereo), 6 (5.1), 8 (7.1)
-- `language`: "original" or language code (eng, jpn)
-- `keywords_include`: match any keyword
-- `keywords_exclude`: exclude any keyword
+- `codec`: aac, ac3, eac3, dts, dts-hd, truehd, flac, mp3, opus, vorbis, pcm
+- `channels`: 1-8 (2=stereo, 6=5.1, 8=7.1)
+- `language`: "original" or ISO code (eng, jpn, spa, etc.)
+- `keywords_include`: match any keyword (array)
+- `keywords_exclude`: exclude any keyword (array)
 
 Rules process top to bottom. First match wins.
+
+**Config versioning**: Add `config_version: 1` to future-proof config format.
 
 ## Usage
 
@@ -145,7 +169,7 @@ audio_selector:
     channels: 6
 ```
 
-**Debug logging**: Edit `logger.js`, set `level: 'debug'`
+**Debug logging**: Set `LOG_LEVEL=debug` environment variable
 
 ## Project Structure
 
