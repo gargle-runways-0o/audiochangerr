@@ -28,12 +28,22 @@ function start(config, onWebhook) {
     const app = express();
     const upload = multer({ storage: multer.memoryStorage() });
 
+    // Log all incoming requests for debugging
+    app.use((req, res, next) => {
+        logger.debug(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
+        next();
+    });
+
     app.get('/health', (req, res) => {
         res.json({ status: 'ok', service: 'audiochangerr-webhook' });
     });
 
     app.post(config.webhook.path, upload.single('thumb'), (req, res) => {
         try {
+            logger.debug(`[WEBHOOK REQUEST] Method: ${req.method}, Path: ${req.path}, IP: ${req.ip}`);
+            logger.debug(`[WEBHOOK REQUEST] Headers: ${JSON.stringify(req.headers, null, 2)}`);
+            logger.debug(`[WEBHOOK REQUEST] Body keys: ${Object.keys(req.body).join(', ')}`);
+
             // Validate webhook secret if configured
             if (!validateWebhookSecret(req, config)) {
                 return res.status(401).json({ error: 'Unauthorized' });
@@ -43,6 +53,7 @@ function start(config, onWebhook) {
 
             if (!payloadJson) {
                 logger.error('Missing payload field');
+                logger.error(`[WEBHOOK REQUEST] Full body: ${JSON.stringify(req.body, null, 2)}`);
                 return res.status(400).json({ error: 'Missing payload field' });
             }
 
@@ -51,6 +62,7 @@ function start(config, onWebhook) {
                 payload = JSON.parse(payloadJson);
             } catch (error) {
                 logger.error(`Parse failed: ${error.message}`);
+                logger.error(`[WEBHOOK REQUEST] Raw payload: ${payloadJson.substring(0, 500)}`);
                 return res.status(400).json({ error: 'Invalid JSON payload' });
             }
 
@@ -71,6 +83,7 @@ function start(config, onWebhook) {
 
         } catch (error) {
             logger.error(`Handler error: ${error.message}`);
+            logger.error(`Stack: ${error.stack}`);
             res.status(500).json({ error: 'Internal server error' });
         }
     });

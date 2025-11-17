@@ -8,8 +8,10 @@ async function processWebhook(payload, config) {
     try {
         const event = payload.event;
 
+        logger.debug(`[PROCESSOR] Received event: ${event}, Metadata type: ${payload.Metadata?.type}`);
+
         if (!RELEVANT_EVENTS.includes(event)) {
-            logger.debug(`Ignoring: ${event}`);
+            logger.debug(`Ignoring: ${event} (not in ${RELEVANT_EVENTS.join(', ')})`);
             return;
         }
 
