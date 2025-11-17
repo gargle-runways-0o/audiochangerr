@@ -1,6 +1,7 @@
 const axios = require('axios');
 const logger = require('./logger');
 const xml2js = require('xml2js');
+const { retryWithBackoff } = require('./retryHelper');
 
 let plexApi;
 
@@ -20,41 +21,55 @@ function init(config) {
 }
 
 async function fetchSessions() {
-    try {
-        const response = await plexApi.get('/status/sessions');
-        return response.data.MediaContainer.Metadata || [];
-    } catch (error) {
-        if (error.response) {
-            logger.error(`GET /status/sessions: ${error.response.status} ${error.response.statusText}`);
-            logger.debug(error.stack);
-            throw new Error(`Plex API error: ${error.response.status} ${error.response.statusText}`);
-        } else {
-            logger.error(`GET /status/sessions: ${error.message}`);
-            logger.debug(error.stack);
-            throw error;
-        }
-    }
+    return retryWithBackoff(
+        async () => {
+            try {
+                const response = await plexApi.get('/status/sessions');
+                return response.data.MediaContainer.Metadata || [];
+            } catch (error) {
+                if (error.response) {
+                    logger.error(`GET /status/sessions: ${error.response.status} ${error.response.statusText}`);
+                    logger.debug(error.stack);
+                    throw new Error(`Plex API error: ${error.response.status} ${error.response.statusText}`);
+                } else {
+                    logger.error(`GET /status/sessions: ${error.message}`);
+                    logger.debug(error.stack);
+                    throw error;
+                }
+            }
+        },
+        3,
+        1000,
+        'fetchSessions'
+    );
 }
 
 async function fetchMetadata(ratingKey) {
-    try {
-        const response = await plexApi.get(`/library/metadata/${ratingKey}`);
-        const metadata = response.data.MediaContainer.Metadata[0];
-        if (!metadata) {
-            throw new Error(`No metadata found for ratingKey ${ratingKey}`);
-        }
-        return metadata;
-    } catch (error) {
-        if (error.response) {
-            logger.error(`GET /library/metadata/${ratingKey}: ${error.response.status} ${error.response.statusText}`);
-            logger.debug(error.stack);
-            throw new Error(`Plex metadata fetch failed: ${error.response.status}`);
-        } else {
-            logger.error(`GET /library/metadata/${ratingKey}: ${error.message}`);
-            logger.debug(error.stack);
-            throw error;
-        }
-    }
+    return retryWithBackoff(
+        async () => {
+            try {
+                const response = await plexApi.get(`/library/metadata/${ratingKey}`);
+                const metadata = response.data.MediaContainer.Metadata[0];
+                if (!metadata) {
+                    throw new Error(`No metadata found for ratingKey ${ratingKey}`);
+                }
+                return metadata;
+            } catch (error) {
+                if (error.response) {
+                    logger.error(`GET /library/metadata/${ratingKey}: ${error.response.status} ${error.response.statusText}`);
+                    logger.debug(error.stack);
+                    throw new Error(`Plex metadata fetch failed: ${error.response.status}`);
+                } else {
+                    logger.error(`GET /library/metadata/${ratingKey}: ${error.message}`);
+                    logger.debug(error.stack);
+                    throw error;
+                }
+            }
+        },
+        3,
+        1000,
+        `fetchMetadata(${ratingKey})`
+    );
 }
 
 async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {

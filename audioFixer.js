@@ -3,7 +3,9 @@ const plexClient = require('./plexClient');
 const audioSelector = require('./audioSelector');
 const { getStreamsFromSession, getPartId } = require('./mediaHelpers');
 
-const processedMedia = new Set();
+// Track processed media with timestamps to allow re-processing after cooldown
+const processedMedia = new Map(); // ratingKey -> timestamp
+const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown before re-processing
 
 async function waitForSessionRestart(originalSession, expectedStreamId, maxWaitSeconds = 120) {
     const maxAttempts = maxWaitSeconds / 2;
@@ -131,20 +133,41 @@ async function processTranscodingSession(session, config) {
 
 function cleanupProcessedMedia(currentSessions) {
     const currentMediaKeys = new Set(currentSessions.map(s => s.ratingKey));
-    for (const processedKey of processedMedia) {
-        if (!currentMediaKeys.has(processedKey)) {
-            logger.debug(`Cleanup: ${processedKey}`);
-            processedMedia.delete(processedKey);
+    const now = Date.now();
+
+    for (const [ratingKey, timestamp] of processedMedia.entries()) {
+        // Remove if not in current sessions AND cooldown has expired
+        if (!currentMediaKeys.has(ratingKey)) {
+            const age = now - timestamp;
+            if (age > COOLDOWN_MS) {
+                logger.debug(`Cleanup: ${ratingKey} (age: ${Math.round(age / 1000)}s)`);
+                processedMedia.delete(ratingKey);
+            }
         }
     }
 }
 
 function markAsProcessed(ratingKey) {
-    processedMedia.add(ratingKey);
+    processedMedia.set(ratingKey, Date.now());
+    logger.debug(`Marked as processed: ${ratingKey}`);
 }
 
 function isProcessed(ratingKey) {
-    return processedMedia.has(ratingKey);
+    if (!processedMedia.has(ratingKey)) {
+        return false;
+    }
+
+    const processedTime = processedMedia.get(ratingKey);
+    const age = Date.now() - processedTime;
+
+    // Allow re-processing after cooldown period
+    if (age > COOLDOWN_MS) {
+        logger.debug(`Cooldown expired for ${ratingKey} (age: ${Math.round(age / 1000)}s)`);
+        processedMedia.delete(ratingKey);
+        return false;
+    }
+
+    return true;
 }
 
 module.exports = {

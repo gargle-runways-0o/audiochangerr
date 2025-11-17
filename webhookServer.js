@@ -5,6 +5,20 @@ const logger = require('./logger');
 let server = null;
 let httpServer = null;
 
+function validateWebhookSecret(req, config) {
+    if (!config.webhook.secret) {
+        return true;  // No secret configured, skip validation
+    }
+
+    const providedSecret = req.headers['x-webhook-secret'];
+    if (!providedSecret || providedSecret !== config.webhook.secret) {
+        logger.warn(`Invalid webhook secret from ${req.ip}`);
+        return false;
+    }
+
+    return true;
+}
+
 function start(config, onWebhook) {
     if (httpServer) {
         logger.warn('Server already running');
@@ -20,6 +34,11 @@ function start(config, onWebhook) {
 
     app.post(config.webhook.path, upload.single('thumb'), (req, res) => {
         try {
+            // Validate webhook secret if configured
+            if (!validateWebhookSecret(req, config)) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
             const payloadJson = req.body.payload;
 
             if (!payloadJson) {
@@ -62,6 +81,11 @@ function start(config, onWebhook) {
     httpServer = app.listen(port, host, () => {
         logger.info(`Listening: ${host}:${port}${config.webhook.path}`);
         logger.info(`Health: http://${host}:${port}/health`);
+        if (config.webhook.secret) {
+            logger.info('Webhook authentication: ENABLED');
+        } else {
+            logger.warn('Webhook authentication: DISABLED (consider setting webhook.secret)');
+        }
     });
 
     httpServer.on('error', (error) => {

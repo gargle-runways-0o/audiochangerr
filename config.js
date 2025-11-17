@@ -64,6 +64,7 @@ function loadConfig() {
     config.webhook.port = config.webhook.port || 4444;
     config.webhook.host = config.webhook.host || '0.0.0.0';
     config.webhook.path = config.webhook.path || '/webhook';
+    config.webhook.secret = config.webhook.secret || ''; // Optional shared secret for auth
 
     if (!config.audio_selector || !Array.isArray(config.audio_selector)) {
         throw new Error('audio_selector must be array');
