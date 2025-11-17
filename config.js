@@ -34,10 +34,19 @@ function validateAudioSelectorRules(rules) {
 }
 
 function loadConfig() {
-    const configPath = path.join(__dirname, 'config.yaml');
+    // Check /config first (Docker volume), then fall back to local directory
+    const dockerConfigPath = '/config/config.yaml';
+    const localConfigPath = path.join(__dirname, 'config.yaml');
 
-    if (!fs.existsSync(configPath)) {
-        throw new Error(`Config not found: ${configPath}`);
+    let configPath;
+    if (fs.existsSync(dockerConfigPath)) {
+        configPath = dockerConfigPath;
+        logger.debug(`Using config from Docker volume: ${dockerConfigPath}`);
+    } else if (fs.existsSync(localConfigPath)) {
+        configPath = localConfigPath;
+        logger.debug(`Using config from local directory: ${localConfigPath}`);
+    } else {
+        throw new Error(`Config not found. Tried: ${dockerConfigPath}, ${localConfigPath}`);
     }
 
     let config;
