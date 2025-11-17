@@ -6,7 +6,7 @@ config_version: 1  # Optional: Config format version (currently v1)
 # Required: Plex server connection
 plex_server_url: "http://192.168.1.100:32400"  # Your Plex server URL
 plex_token: "YOUR_PLEX_TOKEN_HERE"             # Get from Plex Web XML
-owner_username: "your-plex-username"           # Case-sensitive
+owner_username: "your-plex-username"           # Server owner (processes owner + managed users)
 
 mode: "polling"  # "polling" or "webhook"
 dry_run: true    # true = test mode, false = apply changes

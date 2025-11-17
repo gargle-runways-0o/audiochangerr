@@ -148,7 +148,7 @@ Rules process top to bottom. First match wins.
 
 #### `owner_username`
 **Type**: String | **Required**: Yes
-**Description**: Plex server owner username (case-sensitive). Only processes sessions for this user.
+**Description**: Plex server owner username (case-sensitive). Processes sessions for owner and managed users.
 
 #### `mode`
 **Type**: String | **Required**: Yes | **Default**: `polling`
