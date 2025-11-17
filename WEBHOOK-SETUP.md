@@ -1,120 +1,84 @@
-# Plex Webhook Integration Setup
+# Webhook Setup
 
-This guide explains how to configure Audiochangerr to use Plex webhooks instead of polling.
+Configure Audiochangerr to receive instant Plex notifications instead of polling.
 
 ## Requirements
 
-- **Active Plex Pass subscription** (webhooks are a Plex Pass feature)
-- **Network access** from Plex server to Audiochangerr (same network or port forwarding)
+- Active Plex Pass subscription
+- Network access from Plex server to Audiochangerr
 
-## Why Use Webhooks?
+## Webhook vs Polling
 
-**Webhook Mode (Recommended)**:
-- ✅ Instant response when playback starts (0-second delay)
-- ✅ Minimal API calls to Plex server
-- ✅ More efficient resource usage
-- ❌ Requires Plex Pass
+**Webhook**: Instant (<1s), minimal API calls, requires Plex Pass
+**Polling**: 0-10s delay, constant API calls, no Plex Pass needed
 
-**Polling Mode (Fallback)**:
-- ✅ Works without Plex Pass
-- ✅ No network configuration needed
-- ❌ 0-10 second delay (depending on `check_interval`)
-- ❌ Constant API polling creates load
+## Setup
 
----
-
-## Configuration
-
-### Step 1: Enable Webhook Mode
+### 1. Configure Mode
 
 Edit `config.yaml`:
-
 ```yaml
-# Change mode from "polling" to "webhook"
 mode: "webhook"
 
-# Webhook configuration
 webhook:
-  enabled: true
-  port: 4444              # Choose any available port
-  host: "0.0.0.0"        # Listen on all network interfaces
-  path: "/webhook"        # URL path (can be customized)
+  port: 4444
+  host: "0.0.0.0"
+  path: "/webhook"
 ```
 
-### Step 2: Start Audiochangerr
+### 2. Start Server
 
 ```bash
 npm start
 ```
 
-You should see:
+Expected output:
 ```
 [info] Starting WEBHOOK mode
 [info] Webhook endpoint will be: http://0.0.0.0:4444/webhook
-[info] Webhook server listening on 0.0.0.0:4444/webhook
-[info] Configure Plex webhook URL in: Plex Web App → Account → Webhooks
 ```
 
-### Step 3: Configure Plex Webhook
+### 3. Configure Plex
 
-1. **Open Plex Web App** in your browser
-2. **Click your profile icon** (top right) → **Account**
-3. **Navigate to Webhooks** section (under "Settings")
-4. **Click "Add Webhook"**
-5. **Enter the webhook URL**:
-   - Same network: `http://<audiochangerr-ip>:4444/webhook`
-   - Example: `http://192.168.1.50:4444/webhook`
-   - If using reverse proxy: `https://your-domain.com/webhook`
-6. **Click "Save Changes"**
+1. Open Plex Web App
+2. Profile icon → Account → Webhooks
+3. Add Webhook
+4. Enter URL: `http://<audiochangerr-ip>:4444/webhook`
+   - Same network: `http://192.168.1.50:4444/webhook`
+   - Reverse proxy: `https://your-domain.com/webhook`
+5. Save
 
-### Step 4: Test the Integration
+### 4. Test
 
-**Option A: Use the test script**
 ```bash
 ./test-webhook.sh
+# or
+curl http://localhost:4444/health
+# Returns: {"status":"ok","service":"audiochangerr-webhook"}
 ```
 
-**Option B: Play media in Plex**
-1. Start playing any media in Plex
-2. Watch Audiochangerr logs
-3. You should see:
-   ```
-   [info] Webhook received: event=media.play, user=YourUsername
-   [info] Looking for session: media=12345, player=...
-   ```
+## Events Processed
 
----
+| Event | Trigger |
+|-------|---------|
+| `media.play` | Playback starts |
+| `media.resume` | Resume from pause |
+| `playback.started` | Owner event |
 
-## Webhook Events Processed
-
-Audiochangerr responds to these webhook events:
-
-| Event | Description | When Triggered |
-|-------|-------------|----------------|
-| `media.play` | User starts playback | New playback session starts |
-| `media.resume` | User resumes paused media | Paused session resumes |
-| `playback.started` | Server owner event | Shared user starts playback |
-
-**Ignored events**: `media.pause`, `media.stop`, `media.rate`, `library.new`, etc.
-
----
+Ignored: `media.pause`, `media.stop`, `media.rate`, `library.new`
 
 ## Network Configuration
 
-### Same Network Setup (Easiest)
+### Same Network
+```
+URL: http://192.168.1.50:4444/webhook
+Firewall: allow port 4444
+```
 
-If Audiochangerr runs on the same network as Plex:
-- Use local IP address: `http://192.168.1.50:4444/webhook`
-- Ensure firewall allows port 4444
-- No additional configuration needed
+### Remote/Different Network
 
-### Remote Server Setup
-
-If Audiochangerr runs on a different network:
-
-**Option 1: Reverse Proxy** (Recommended)
+**Reverse proxy** (recommended):
 ```nginx
-# nginx example
 location /webhook {
     proxy_pass http://localhost:4444/webhook;
     proxy_set_header Host $host;
@@ -122,202 +86,104 @@ location /webhook {
 }
 ```
 
-**Option 2: Port Forwarding**
-- Forward external port (e.g., 4444) to Audiochangerr server
-- Use public IP: `http://<your-public-ip>:4444/webhook`
-- ⚠️ **Security warning**: Exposes service to internet
-
----
+**Port forwarding**: Forward 4444 to Audiochangerr (⚠️ exposes service)
 
 ## Troubleshooting
 
 ### Webhook Not Received
 
-**Check 1: Is the server running?**
+**Server running?**
 ```bash
 curl http://localhost:4444/health
-# Should return: {"status":"ok","service":"audiochangerr-webhook"}
 ```
 
-**Check 2: Is the port accessible from Plex?**
+**Port accessible from Plex?**
 ```bash
-# From Plex server, test connectivity
-curl -X POST http://<audiochangerr-ip>:4444/webhook \
-  -F 'payload={"event":"test"}'
+curl -X POST http://<audiochangerr-ip>:4444/webhook -F 'payload={"event":"test"}'
 ```
 
-**Check 3: Firewall blocking the port?**
+**Firewall blocking?**
 ```bash
-# Allow port 4444 (Linux example)
 sudo ufw allow 4444/tcp
 ```
 
-**Check 4: Correct webhook URL in Plex?**
-- Verify URL in Plex Web App → Account → Webhooks
+**Correct URL in Plex?**
 - Must include `http://` or `https://`
-- Must include port number if not 80/443
-- Path must match config.yaml (`/webhook` by default)
+- Must include port if not 80/443
+- Path must match config (`/webhook` default)
 
-### Webhook Received But Nothing Happens
+### Webhook Received, Nothing Happens
 
-**Check 1: Enable debug logging**
+**Enable debug logging**: Edit `logger.js`, set `level: 'debug'`
 
-Edit `logger.js` to set level to 'debug':
-```javascript
-level: 'debug',  // Change from 'info' to 'debug'
-```
-
-**Check 2: View detailed logs**
+**Check logs**:
 ```bash
 npm start 2>&1 | tee audiochangerr.log
 ```
 
 Look for:
-- `[debug] Full webhook payload: ...` - Webhook structure
-- `[debug] Looking for session: ...` - Session matching
-- `[debug] No active session found...` - Session not yet established (normal)
+- `[debug] Full webhook payload: ...`
+- `[debug] Looking for session: ...`
+- `[debug] No active session found...` (normal - timing issue)
 
-**Check 3: Timing issues**
+**Timing**: Webhook may arrive before session established in `/status/sessions`. This is normal. Background cleanup polls every 60s.
 
-Webhooks may arrive before Plex establishes the session in `/status/sessions`:
-- This is **normal behavior**
-- Webhook arrives → Session not found → Ignored
-- Polling cleanup will catch it on next check (webhook mode still polls every 60s for cleanup)
+## Mode Switching
 
----
-
-## Switching Between Modes
-
-### Webhook → Polling
+**To polling**:
 ```yaml
-mode: "polling"  # Change in config.yaml
+mode: "polling"
 ```
-Restart the application. Webhook server stops, polling begins.
+Restart app.
 
-### Polling → Webhook
+**To webhook**:
 ```yaml
-mode: "webhook"  # Change in config.yaml
+mode: "webhook"
 ```
-Restart the application. Configure Plex webhook URL as described above.
+Restart app, configure Plex URL.
 
----
+## Advanced
 
-## Advanced Configuration
-
-### Custom Port
-
-If port 4444 is already in use:
+**Custom port**:
 ```yaml
 webhook:
-  port: 8080  # Choose any available port
+  port: 8080
 ```
 
-Update Plex webhook URL accordingly.
-
-### Custom Endpoint Path
-
-For security through obscurity:
+**Custom path**:
 ```yaml
 webhook:
-  path: "/my-secret-webhook-path-12345"
+  path: "/my-secret-path"
 ```
 
-Plex URL becomes: `http://your-ip:4444/my-secret-webhook-path-12345`
-
-### Bind to Specific Interface
-
-To only listen on localhost (requires reverse proxy):
+**Localhost only** (requires reverse proxy):
 ```yaml
 webhook:
   host: "127.0.0.1"
 ```
 
----
+## Security
 
-## Security Considerations
+**Private server**: No authentication needed.
 
-Since you're running on a **private server** (as noted in setup):
-- ✅ No authentication is required on the webhook endpoint
-- ✅ Plex webhook payloads are trusted
-- ✅ No webhook signature validation implemented
+**Public deployment**:
+- Use reverse proxy with authentication
+- Enable HTTPS
+- Restrict firewall to Plex server IPs
 
-For **public-facing deployments**:
-- ⚠️ Consider adding reverse proxy with authentication
-- ⚠️ Use HTTPS with valid certificate
-- ⚠️ Implement webhook signature validation (future enhancement)
-- ⚠️ Use firewall rules to restrict access to Plex server IPs only
-
----
-
-## Webhook Payload Example
-
-For reference, here's what Plex sends for a `media.play` event:
-
-```json
-{
-  "event": "media.play",
-  "user": true,
-  "owner": true,
-  "Account": {
-    "id": 1,
-    "thumb": "https://plex.tv/users/1234/avatar",
-    "title": "username"
-  },
-  "Server": {
-    "title": "My Plex Server",
-    "uuid": "abc123..."
-  },
-  "Player": {
-    "local": true,
-    "publicAddress": "192.168.1.100",
-    "title": "Plex Web (Chrome)",
-    "uuid": "player-uuid"
-  },
-  "Metadata": {
-    "ratingKey": "12345",
-    "type": "movie",
-    "title": "Example Movie",
-    ...
-  }
-}
-```
-
-The payload is sent as multipart form data with:
-- Field `payload`: JSON string (shown above)
-- Field `thumb`: JPEG image (discarded by Audiochangerr)
-
----
-
-## Performance Comparison
+## Performance
 
 | Metric | Polling (10s) | Webhook |
 |--------|---------------|---------|
-| Detection latency | 0-10 seconds | <1 second |
-| API calls/hour (idle) | 360 | 1 (cleanup) |
-| API calls/hour (1 session) | 360+ | 1-3 |
-| Resource usage | Medium | Low |
-| Plex Pass required | No | Yes |
+| Latency | 0-10s | <1s |
+| API calls/hour (idle) | 360 | 1 |
+| Plex Pass | No | Yes |
 
----
+## Migration from Polling
 
-## Support
-
-If you encounter issues:
-1. Check this troubleshooting guide first
-2. Enable debug logging in `logger.js`
-3. Run `./test-webhook.sh` to verify endpoint works
-4. Review application logs for detailed error messages
-5. Verify Plex webhook configuration in Plex Web App
-
----
-
-## Migration Notes
-
-**From polling-only version**:
-1. Update code (includes new webhook files)
-2. Run `npm install` (installs express, multer)
-3. Update `config.yaml` with webhook settings
-4. Keep `mode: "polling"` initially to test nothing broke
-5. Switch to `mode: "webhook"` when ready
-6. Configure Plex webhook URL
-7. Monitor logs to confirm webhooks received
+```bash
+npm install  # Installs express, multer
+# Edit config.yaml, set mode: "webhook"
+npm start
+# Configure Plex webhook URL
+```
