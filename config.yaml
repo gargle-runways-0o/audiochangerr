@@ -1,7 +1,27 @@
-plex_server_url: ""
-plex_token: "" # User must fill this
-owner_username: "" # User must fill this with their Plex username
-check_interval: 10
+# Plex Server Configuration
+plex_server_url: ""         # Your Plex server URL (e.g., http://192.168.1.100:32400)
+plex_token: ""              # Your Plex authentication token
+owner_username: ""          # Your Plex username (for the server owner)
+
+# Operation Mode
+# - "webhook": Real-time notifications from Plex (requires Plex Pass)
+# - "polling": Periodically check for transcodes (works without Plex Pass)
+mode: "polling"
+
+# Webhook Configuration (only used when mode: "webhook")
+# Requires active Plex Pass subscription
+webhook:
+  enabled: true
+  port: 4444                # Port for webhook HTTP server
+  host: "0.0.0.0"          # Bind address (0.0.0.0 = all interfaces)
+  path: "/webhook"          # Endpoint path
+
+# Polling Configuration (only used when mode: "polling")
+check_interval: 10          # Seconds between checks
+
+# Dry Run Mode
+# When true: Logs actions without making changes
+# When false: Actually modifies audio streams and terminates sessions
 dry_run: true
 
 # audio_selector: An ordered list of rules for selecting the best audio stream.
