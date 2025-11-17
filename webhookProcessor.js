@@ -16,10 +16,12 @@ async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initi
             logger.debug(`Active sessions: ${sessions.length}`);
         }
 
-        const matchingSession = sessions.find(s =>
-            String(s.ratingKey) === String(ratingKey) &&
-            String(s.Player?.uuid) === String(playerUuid)
-        );
+        const matchingSession = sessions.find(s => {
+            const ratingKeyMatch = String(s.ratingKey) === String(ratingKey);
+            // Plex sessions use Player.machineIdentifier, webhooks may use uuid
+            const playerMatch = String(s.Player?.uuid || s.Player?.machineIdentifier) === String(playerUuid);
+            return ratingKeyMatch && playerMatch;
+        });
 
         if (matchingSession) {
             if (attempt > 0) {
