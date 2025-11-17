@@ -71,6 +71,15 @@ function loadConfig() {
     config.webhook.path = config.webhook.path || '/webhook';
     config.webhook.secret = config.webhook.secret || ''; // Optional shared secret for auth
 
+    // Optional initial delay before session lookup
+    if (config.webhook.initial_delay_ms !== undefined) {
+        if (typeof config.webhook.initial_delay_ms !== 'number' || config.webhook.initial_delay_ms < 0) {
+            throw new Error(`webhook.initial_delay_ms must be >= 0 (got: ${config.webhook.initial_delay_ms})`);
+        }
+    } else {
+        config.webhook.initial_delay_ms = 0;
+    }
+
     // Optional webhook retry configuration
     if (config.webhook.session_retry !== undefined) {
         config.webhook.session_retry.enabled = config.webhook.session_retry.enabled !== undefined
@@ -83,15 +92,6 @@ function loadConfig() {
             }
             if (typeof config.webhook.session_retry.initial_delay_ms !== 'number' || config.webhook.session_retry.initial_delay_ms < 0) {
                 throw new Error(`webhook.session_retry.initial_delay_ms must be >= 0 (got: ${config.webhook.session_retry.initial_delay_ms})`);
-            }
-
-            // Optional delay before first attempt
-            if (config.webhook.session_retry.delay_before_first_attempt_ms !== undefined) {
-                if (typeof config.webhook.session_retry.delay_before_first_attempt_ms !== 'number' || config.webhook.session_retry.delay_before_first_attempt_ms < 0) {
-                    throw new Error(`webhook.session_retry.delay_before_first_attempt_ms must be >= 0 (got: ${config.webhook.session_retry.delay_before_first_attempt_ms})`);
-                }
-            } else {
-                config.webhook.session_retry.delay_before_first_attempt_ms = 0;
             }
         }
     }

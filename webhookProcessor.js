@@ -9,15 +9,15 @@ const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started'];
  * Webhooks can arrive before Plex creates the session.
  */
 async function findSessionWithRetry(ratingKey, playerUuid, config) {
+    const initialDelay = config.webhook?.initial_delay_ms || 0;
     const retryEnabled = config.webhook?.session_retry?.enabled || false;
     const maxRetries = retryEnabled ? config.webhook.session_retry.max_attempts : 1;
-    const initialDelayMs = retryEnabled ? config.webhook.session_retry.initial_delay_ms : 0;
-    const delayBeforeFirstAttempt = retryEnabled ? (config.webhook.session_retry.delay_before_first_attempt_ms || 0) : 0;
+    const retryDelayMs = retryEnabled ? config.webhook.session_retry.initial_delay_ms : 0;
 
-    // Optional delay before first attempt
-    if (delayBeforeFirstAttempt > 0) {
-        logger.debug(`Waiting ${delayBeforeFirstAttempt}ms before first session lookup...`);
-        await new Promise(resolve => setTimeout(resolve, delayBeforeFirstAttempt));
+    // Optional delay before first lookup (separate from retry logic)
+    if (initialDelay > 0) {
+        logger.debug(`Waiting ${initialDelay}ms before session lookup...`);
+        await new Promise(resolve => setTimeout(resolve, initialDelay));
     }
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -61,7 +61,7 @@ async function findSessionWithRetry(ratingKey, playerUuid, config) {
 
         // Not the last attempt, wait and retry
         if (attempt < maxRetries - 1) {
-            const delayMs = initialDelayMs * Math.pow(2, attempt);
+            const delayMs = retryDelayMs * Math.pow(2, attempt);
             logger.debug(`Session not found (attempt ${attempt + 1}/${maxRetries}), retrying in ${delayMs}ms...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
