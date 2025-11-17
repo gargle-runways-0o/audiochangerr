@@ -12,6 +12,14 @@ async function findSessionWithRetry(ratingKey, playerUuid, config) {
     const retryEnabled = config.webhook?.session_retry?.enabled || false;
     const maxRetries = retryEnabled ? config.webhook.session_retry.max_attempts : 1;
     const initialDelayMs = retryEnabled ? config.webhook.session_retry.initial_delay_ms : 0;
+    const delayBeforeFirstAttempt = retryEnabled ? (config.webhook.session_retry.delay_before_first_attempt_ms || 0) : 0;
+
+    // Optional delay before first attempt
+    if (delayBeforeFirstAttempt > 0) {
+        logger.debug(`Waiting ${delayBeforeFirstAttempt}ms before first session lookup...`);
+        await new Promise(resolve => setTimeout(resolve, delayBeforeFirstAttempt));
+    }
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const sessions = await plexClient.fetchSessions();
 
