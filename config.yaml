@@ -1,37 +1,31 @@
-# Plex Server
-plex_server_url: ""         # http://192.168.1.100:32400
-plex_token: ""              # Authentication token
-owner_username: ""          # Server owner username
+# Plex Server Configuration
+plex_server_url: ""                        # e.g., http://192.168.1.100:32400
+plex_token: ""                             # Plex authentication token
+owner_username: ""                         # Plex server owner username
 
-# Mode: "webhook" (Plex Pass, instant) or "polling" (no Plex Pass, 0-10s delay)
-mode: "polling"
+# Operation Mode
+mode: "polling"                            # "webhook" or "polling"
 
-# Webhook (mode: "webhook" only, requires Plex Pass)
+# Webhook Settings (mode: "webhook" only)
 webhook:
-  enabled: true
-  port: 4444
-  host: "0.0.0.0"          # 0.0.0.0 = all interfaces
-  path: "/webhook"
+  enabled: true                            # Enable webhook server
+  port: 4444                               # Webhook server port
+  host: "0.0.0.0"                          # Listen address (0.0.0.0 = all)
+  path: "/webhook"                         # Webhook endpoint path
 
-# Polling (mode: "polling" only)
-check_interval: 10          # Seconds between checks
+# Polling Settings (mode: "polling" only)
+check_interval: 10                         # Seconds between session checks
 
-# Dry Run: true = log only, false = apply changes
-dry_run: true
+# Dry Run Mode
+dry_run: true                              # true = log only, false = apply changes
 
-# Audio Selection Rules
-# - Processed top to bottom, first match wins
-# - codec: ac3, aac, dts, truehd
-# - channels: 2 (stereo), 6 (5.1), 8 (7.1)
-# - language: "original" or code (eng, jpn)
-# - keywords_include: match any keyword (optional)
-# - keywords_exclude: exclude any keyword (optional)
+# Audio Selection Rules (first match wins)
 audio_selector:
-  - codec: "ac3"
-    channels: 6
-    language: "original"
-    keywords_include: []
-    keywords_exclude: ["Commentary", "commentary"]
+  - codec: "ac3"                           # Audio codec
+    channels: 6                            # Channel count (2, 6, 8)
+    language: "original"                   # "original" or ISO code
+    keywords_include: []                   # Match any keyword
+    keywords_exclude: ["Commentary", "commentary"]  # Exclude keywords
   - codec: "ac3"
     channels: 2
     language: "original"

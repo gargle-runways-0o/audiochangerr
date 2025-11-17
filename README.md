@@ -132,6 +132,190 @@ Rules process top to bottom. First match wins.
 
 **Config versioning**: Add `config_version: 1` to future-proof config format.
 
+## Configuration Reference
+
+### Core Settings
+
+#### `plex_server_url`
+**Type**: String
+**Required**: Yes
+**Description**: The full URL to your Plex Media Server, including protocol and port. This is the base URL used for all API communications.
+**Example**: `http://192.168.1.100:32400` or `https://plex.example.com`
+
+#### `plex_token`
+**Type**: String
+**Required**: Yes
+**Description**: Authentication token for accessing the Plex API. Required for all operations. To obtain your token, open any media item in Plex Web, click "Get Info", then "View XML". Copy the `X-Plex-Token` parameter from the URL.
+**Security**: Keep this token secure. Anyone with this token has full access to your Plex server.
+
+#### `owner_username`
+**Type**: String
+**Required**: Yes
+**Description**: The username of the Plex server owner. Sessions are filtered to only process media played by this user. This is case-sensitive and must match exactly as it appears in Plex.
+**Note**: This ensures Audiochangerr only modifies sessions for the server owner, not shared users.
+
+#### `mode`
+**Type**: String
+**Required**: Yes
+**Default**: `polling`
+**Options**: `webhook`, `polling`
+**Description**: The operational mode for detecting playback sessions.
+- `webhook`: Uses HTTP webhooks for instant detection. Requires Plex Pass or Tautulli. No polling overhead, immediate response.
+- `polling`: Periodically checks for active sessions. No Plex Pass required. Introduces 0-10 second delay depending on `check_interval`.
+
+#### `dry_run`
+**Type**: Boolean
+**Required**: Yes
+**Default**: `true`
+**Description**: When enabled (`true`), Audiochangerr logs all actions it would take without actually modifying any sessions. When disabled (`false`), changes are applied to Plex sessions. Always test with `dry_run: true` before enabling production mode.
+
+### Webhook Settings
+
+All webhook settings only apply when `mode: "webhook"`.
+
+#### `webhook.enabled`
+**Type**: Boolean
+**Default**: `true`
+**Description**: Enables or disables the webhook HTTP server. Must be `true` for webhook mode to function.
+
+#### `webhook.port`
+**Type**: Integer
+**Default**: `4444`
+**Description**: The TCP port the webhook server listens on. Must be accessible from your Plex server or Tautulli instance. Ensure this port is allowed through your firewall if needed.
+
+#### `webhook.host`
+**Type**: String
+**Default**: `"0.0.0.0"`
+**Description**: The network interface to bind the webhook server to.
+- `0.0.0.0`: Listen on all network interfaces (recommended for Docker)
+- `127.0.0.1`: Listen only on localhost (local connections only)
+- Specific IP: Bind to a specific network interface
+
+#### `webhook.path`
+**Type**: String
+**Default**: `"/webhook"`
+**Description**: The URL path for the webhook endpoint. Your Plex/Tautulli webhook URL will be `http://server:port/webhook`. The health check endpoint is always available at `/health`.
+
+#### `webhook.secret`
+**Type**: String
+**Optional**: Yes
+**Description**: Shared secret for webhook authentication. When set, all incoming webhooks must include an `X-Webhook-Secret` header matching this value. Highly recommended for internet-exposed webhooks to prevent unauthorized access.
+**Example**: `webhook.secret: "your-random-secret-string-here"`
+
+#### `webhook.initial_delay_ms`
+**Type**: Integer
+**Optional**: Yes
+**Default**: `0` (no delay)
+**Description**: Delay in milliseconds before the first session lookup after receiving a webhook. Useful if webhooks consistently arrive before Plex has created the session in its API. Only add this if you're experiencing session lookup failures.
+**Recommended Range**: 0-2000ms
+
+#### `webhook.session_retry`
+**Type**: Object
+**Optional**: Yes
+**Description**: Retry configuration for session lookups when the session is not found on the first attempt. Webhooks sometimes arrive before Plex has fully created the session in its API. Omit this entire section to disable retries (single attempt only).
+
+#### `webhook.session_retry.max_attempts`
+**Type**: Integer
+**Optional**: Yes
+**Default**: 1 (no retries if section omitted)
+**Description**: Total number of session lookup attempts, including the initial attempt. Each retry uses exponential backoff.
+**Recommended Range**: 1-5 attempts
+
+#### `webhook.session_retry.initial_delay_ms`
+**Type**: Integer
+**Optional**: Yes
+**Description**: Base delay in milliseconds for exponential backoff between retry attempts. Actual delays follow the pattern: `delay × 2^0`, `delay × 2^1`, `delay × 2^2`, etc.
+**Example**: With `initial_delay_ms: 500` and `max_attempts: 4`, retries occur at: 500ms, 1000ms, 2000ms, 4000ms
+**Recommended Range**: 100-1000ms
+
+### Polling Settings
+
+#### `check_interval`
+**Type**: Integer
+**Required**: When `mode: "polling"`
+**Default**: `10`
+**Description**: Number of seconds between session checks when in polling mode. Lower values reduce detection delay but increase API overhead. Higher values reduce server load but may miss brief transcoding events.
+**Recommended Range**: 5-30 seconds
+**Trade-off**: 5s = faster detection, more API calls; 30s = fewer API calls, slower detection
+
+### Audio Selection Rules
+
+#### `audio_selector`
+**Type**: Array of Objects
+**Required**: Yes
+**Description**: List of audio track selection rules processed from top to bottom. When a transcoding session is detected, Audiochangerr evaluates each rule in order and selects the first matching audio track. If no tracks match any rule, the session is not modified.
+
+**Rule Processing**:
+1. Rules are evaluated sequentially from first to last
+2. First rule that matches an available audio track wins
+3. Matched track is selected and session is restarted
+4. If no rules match, no action is taken
+
+**Rule Fields**:
+
+##### `codec`
+**Type**: String
+**Required**: Yes
+**Options**: `aac`, `ac3`, `eac3`, `dts`, `dts-hd`, `truehd`, `flac`, `mp3`, `opus`, `vorbis`, `pcm`
+**Description**: The audio codec to match. Must exactly match the codec identifier from Plex's stream metadata.
+
+##### `channels`
+**Type**: Integer
+**Required**: Yes
+**Options**: 1-8 (common: 2, 6, 8)
+**Description**: Number of audio channels to match.
+- `2`: Stereo
+- `6`: 5.1 surround
+- `8`: 7.1 surround
+
+##### `language`
+**Type**: String
+**Required**: Yes
+**Options**: `"original"` or ISO 639-2 language code
+**Description**: Language preference for audio tracks.
+- `"original"`: Matches the original/default language of the media
+- ISO code: Specific language (e.g., `eng`, `jpn`, `spa`, `fra`)
+
+##### `keywords_include`
+**Type**: Array of Strings
+**Optional**: Yes
+**Default**: `[]`
+**Description**: Audio track title must contain at least one of these keywords (case-insensitive). Empty array means no keyword filtering. Useful for selecting specific track variants.
+**Example**: `["DTS-HD", "TrueHD"]` matches tracks with "DTS-HD" or "TrueHD" in the title
+
+##### `keywords_exclude`
+**Type**: Array of Strings
+**Optional**: Yes
+**Default**: `[]`
+**Description**: Audio track title must NOT contain any of these keywords (case-insensitive). Empty array means no exclusions. Useful for avoiding commentary or descriptive audio tracks.
+**Example**: `["Commentary", "Descriptive"]` excludes tracks containing these keywords
+
+**Example Rule**:
+```yaml
+audio_selector:
+  - codec: "ac3"                  # Dolby Digital
+    channels: 6                   # 5.1 surround
+    language: "original"          # Original language
+    keywords_include: []          # No keyword requirements
+    keywords_exclude: ["Commentary"]  # Skip commentary tracks
+```
+
+### Optional Advanced Settings
+
+#### `validation_timeout_seconds`
+**Type**: Integer
+**Optional**: Yes
+**Default**: `120`
+**Description**: Maximum time in seconds to wait for session restart validation after switching audio tracks. After switching tracks and terminating the session, Audiochangerr monitors for the session to restart without transcoding. If this timeout is exceeded, the processing cache is cleared and the media can be processed again on next detection.
+**Recommended Range**: 60-180 seconds
+**Note**: Longer timeouts prevent re-processing during slow session restarts; shorter timeouts allow faster retry on failures.
+
+#### `config_version`
+**Type**: Integer
+**Optional**: Yes
+**Description**: Configuration format version for future compatibility. Currently optional but recommended to future-proof your configuration against format changes in newer versions.
+**Current Version**: `1`
+
 ## Usage
 
 ```bash
