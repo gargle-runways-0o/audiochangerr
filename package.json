@@ -4,7 +4,14 @@
   "description": "Change the default audio track for items in Plex to aid in preventing transcoding.",
   "main": "main.js",
   "scripts": {
-    "start": "node main.js"
+    "start": "node main.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": ["/node_modules/"],
+    "testMatch": ["**/__tests__/**/*.test.js"]
   },
   "dependencies": {
     "axios": "^1.6.2",
@@ -13,5 +20,8 @@
     "multer": "^2.0.0-rc.4",
     "winston": "^3.11.0",
     "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0"
   }
 }
