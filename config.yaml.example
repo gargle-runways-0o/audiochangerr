@@ -1,0 +1,66 @@
+# Audiochangerr Configuration Example
+# Copy to config.yaml and customize
+
+# Optional: Config version for future-proofing (currently v1)
+config_version: 1
+
+# Required: Plex server connection
+plex_server_url: "http://192.168.1.100:32400"  # Your Plex server URL
+plex_token: "YOUR_PLEX_TOKEN_HERE"             # Get from Plex Web XML
+owner_username: "your-plex-username"           # Case-sensitive
+
+# Mode: "polling" or "webhook"
+mode: "polling"
+
+# Dry run: true = test without changes, false = apply changes
+dry_run: true
+
+# Polling mode settings (only used when mode: "polling")
+check_interval: 10  # seconds between checks
+
+# Webhook mode settings (only used when mode: "webhook")
+webhook:
+  enabled: true
+  port: 4444
+  host: "0.0.0.0"
+  path: "/webhook"
+  secret: ""  # Optional: require X-Webhook-Secret header for authentication
+
+# Audio selection rules (processed top to bottom, first match wins)
+audio_selector:
+  # Example 1: Prefer AC3 5.1 in original language, exclude commentary
+  - codec: "ac3"
+    channels: 6
+    language: "original"
+    keywords_exclude: ["Commentary", "Director"]
+
+  # Example 2: Fallback to AAC stereo in original language
+  - codec: "aac"
+    channels: 2
+    language: "original"
+
+  # Example 3: DTS-HD Master Audio (if available)
+  - codec: "dts-hd"
+    channels: 6
+    language: "original"
+    keywords_include: ["MA", "Master"]
+
+  # Example 4: English AC3 5.1 as secondary choice
+  - codec: "ac3"
+    channels: 6
+    language: "eng"
+
+  # Example 5: Any compatible stereo track
+  - channels: 2
+
+# Codec options: aac, ac3, eac3, dts, dts-hd, truehd, flac, mp3, opus, vorbis, pcm
+# Channels: 1-8 (2=stereo, 6=5.1, 8=7.1)
+# Language: "original" or ISO 639-2/3 code (eng, jpn, spa, fre, ger, etc.)
+# keywords_include: Array of keywords (must match ANY)
+# keywords_exclude: Array of keywords (must match NONE)
+
+# Notes:
+# - All rule criteria are optional
+# - Rules are evaluated in order until first match
+# - Missing criteria means "any value acceptable"
+# - Use dry_run: true to test rules before applying
