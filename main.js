@@ -82,6 +82,9 @@ async function main() {
         plexClient.init(config);
         logger.info('Plex initialized');
 
+        // Set validation timeout from config
+        audioFixer.setValidationTimeout(config.validation_timeout_seconds);
+
         if (config.mode === 'webhook') {
             startWebhookMode();
         } else if (config.mode === 'polling') {
