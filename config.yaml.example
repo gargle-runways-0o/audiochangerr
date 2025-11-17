@@ -10,6 +10,8 @@ plex_token: "YOUR_PLEX_TOKEN_HERE"             # Get from Plex Web XML
 owner_username: "your-plex-username"           # Case-sensitive
 
 # Mode: "polling" or "webhook"
+# - polling: No Plex Pass required, 0-10s delay
+# - webhook: Requires Plex Pass OR Tautulli, instant (<1s)
 mode: "polling"
 
 # Dry run: true = test without changes, false = apply changes
@@ -19,6 +21,8 @@ dry_run: true
 check_interval: 10  # seconds between checks
 
 # Webhook mode settings (only used when mode: "webhook")
+# Supports both Plex webhooks (Plex Pass) and Tautulli webhooks (no Plex Pass)
+# See WEBHOOK-SETUP.md for configuration instructions
 webhook:
   enabled: true
   port: 4444
