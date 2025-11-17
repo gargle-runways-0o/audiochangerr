@@ -48,6 +48,11 @@ function startPollingMode() {
 }
 
 function startWebhookMode() {
+    if (config.webhook.enabled === false) {
+        logger.error('Webhook mode selected but webhook.enabled is false');
+        throw new Error('webhook.enabled must be true for webhook mode');
+    }
+
     logger.info('Starting WEBHOOK');
     logger.info(`Endpoint: http://${config.webhook.host}:${config.webhook.port}${config.webhook.path}`);
 
