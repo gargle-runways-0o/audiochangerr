@@ -84,6 +84,37 @@ async function processWebhook(payload, config) {
 
         logger.debug(`Session search: media=${ratingKey}, player=${playerUuid}, user=${userTitle}`);
 
+        // Check if this media+player was recently processed and needs validation
+        const processingInfo = audioFixer.getProcessingInfo(ratingKey, playerUuid);
+        if (processingInfo) {
+            logger.debug(`Found processing info for ${ratingKey}:${playerUuid}, checking for restart...`);
+
+            const matchingSession = await findSessionWithRetry(ratingKey, playerUuid);
+            if (matchingSession) {
+                const validationResult = audioFixer.validateSessionRestart(matchingSession, processingInfo);
+
+                if (validationResult === true) {
+                    // Success - clear the processing info
+                    audioFixer.clearProcessingInfo(ratingKey, playerUuid);
+                    logger.info(`✓ Audio track switch validated successfully for ${ratingKey}`);
+                    return;
+                } else if (validationResult === false) {
+                    // Failed validation - clear and allow reprocessing
+                    audioFixer.clearProcessingInfo(ratingKey, playerUuid);
+                    logger.warn(`Audio track switch validation failed for ${ratingKey}`);
+                    return;
+                }
+                // validationResult === null means same session, keep waiting
+                logger.debug(`Same session, waiting for restart...`);
+                return;
+            } else {
+                // No session found during validation period - keep waiting
+                logger.debug(`No session found during validation, will check on next webhook`);
+                return;
+            }
+        }
+
+        // Not in processing cache, check if already processed and in cooldown
         if (audioFixer.isProcessed(ratingKey)) {
             logger.debug(`Already processed: ${ratingKey}`);
             return;
@@ -106,10 +137,9 @@ async function processWebhook(payload, config) {
         const success = await audioFixer.processTranscodingSession(matchingSession, config);
 
         if (success) {
-            audioFixer.markAsProcessed(ratingKey);
-            logger.info(`Success: ${ratingKey}`);
+            logger.info(`Audio switch initiated: ${ratingKey}`);
         } else {
-            logger.warn(`Failed: ${ratingKey}`);
+            logger.warn(`Failed to switch audio: ${ratingKey}`);
         }
 
     } catch (error) {

@@ -58,6 +58,7 @@ function loadConfig() {
     config.check_interval = config.check_interval || 10;
     config.dry_run = config.dry_run !== undefined ? config.dry_run : true;
     config.mode = config.mode || 'polling';
+    config.validation_timeout_seconds = config.validation_timeout_seconds || 300; // 5 minutes default
 
     config.webhook = config.webhook || {};
     config.webhook.enabled = config.webhook.enabled !== undefined ? config.webhook.enabled : true;
