@@ -4,16 +4,11 @@ const audioFixer = require('./audioFixer');
 
 const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started'];
 
-/**
- * Searches for a matching session with optional retry logic.
- * Webhooks can arrive before Plex creates the session.
- */
 async function findSessionWithRetry(ratingKey, playerUuid, config) {
-    const initialDelay = config.webhook?.initial_delay_ms || 0;
-    const maxRetries = config.webhook?.session_retry?.max_attempts || 1;
-    const retryDelayMs = config.webhook?.session_retry?.initial_delay_ms || 0;
+    const initialDelay = config.webhook?.initial_delay_ms || 0; // Delay before first attempt
+    const maxRetries = config.webhook?.session_retry?.max_attempts || 1; // Number of attempts
+    const retryDelayMs = config.webhook?.session_retry?.initial_delay_ms || 0; // Base delay for exponential backoff
 
-    // Optional delay before first lookup (separate from retry logic)
     if (initialDelay > 0) {
         logger.debug(`Waiting ${initialDelay}ms before session lookup...`);
         await new Promise(resolve => setTimeout(resolve, initialDelay));
