@@ -31,9 +31,18 @@ async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initi
         // Debug: Log what sessions we actually have when no match found
         if (attempt === 0 && sessions.length > 0) {
             logger.debug(`No match found. Wanted: ratingKey=${ratingKey}, player=${playerUuid}`);
-            logger.debug(`Session details for debugging:`);
+            logger.debug(`Actual sessions (${sessions.length}):`);
             sessions.forEach((s, idx) => {
-                logger.debug(`  [${idx}] ratingKey=${s.ratingKey}, player=${s.Player?.uuid}, type=${s.type}, title=${s.title || s.grandparentTitle}`);
+                logger.debug(`  [${idx}] Full session: ${JSON.stringify({
+                    ratingKey: s.ratingKey,
+                    sessionKey: s.sessionKey,
+                    type: s.type,
+                    title: s.title,
+                    grandparentTitle: s.grandparentTitle,
+                    Player: s.Player,
+                    User: s.User,
+                    TranscodeSession: s.TranscodeSession ? 'present' : 'absent'
+                }, null, 2)}`);
             });
         }
 
