@@ -14,6 +14,14 @@ async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initi
 
         if (attempt === 0) {
             logger.debug(`Active sessions: ${sessions.length}`);
+
+            // Debug: Log what sessions we actually have
+            if (sessions.length > 0 && !sessions.find(s => String(s.ratingKey) === String(ratingKey))) {
+                logger.debug(`Session details for debugging:`);
+                sessions.forEach((s, idx) => {
+                    logger.debug(`  [${idx}] ratingKey=${s.ratingKey}, player=${s.Player?.uuid}, type=${s.type}, title=${s.title || s.grandparentTitle}`);
+                });
+            }
         }
 
         const matchingSession = sessions.find(s =>
