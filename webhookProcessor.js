@@ -10,9 +10,8 @@ const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started'];
  */
 async function findSessionWithRetry(ratingKey, playerUuid, config) {
     const initialDelay = config.webhook?.initial_delay_ms || 0;
-    const retryEnabled = config.webhook?.session_retry?.enabled || false;
-    const maxRetries = retryEnabled ? config.webhook.session_retry.max_attempts : 1;
-    const retryDelayMs = retryEnabled ? config.webhook.session_retry.initial_delay_ms : 0;
+    const maxRetries = config.webhook?.session_retry?.max_attempts || 1;
+    const retryDelayMs = config.webhook?.session_retry?.initial_delay_ms || 0;
 
     // Optional delay before first lookup (separate from retry logic)
     if (initialDelay > 0) {

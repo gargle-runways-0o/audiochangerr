@@ -60,33 +60,56 @@ function loadConfig() {
         throw new Error(`validation_timeout_seconds must be a positive number (got: ${config.validation_timeout_seconds})`);
     }
 
-    config.check_interval = config.check_interval || 10;
-    config.dry_run = config.dry_run !== undefined ? config.dry_run : true;
-    config.mode = config.mode || 'polling';
-
-    config.webhook = config.webhook || {};
-    config.webhook.enabled = config.webhook.enabled !== undefined ? config.webhook.enabled : true;
-    config.webhook.port = config.webhook.port || 4444;
-    config.webhook.host = config.webhook.host || '0.0.0.0';
-    config.webhook.path = config.webhook.path || '/webhook';
-    config.webhook.secret = config.webhook.secret || ''; // Optional shared secret for auth
-
-    // Optional initial delay before session lookup
-    if (config.webhook.initial_delay_ms !== undefined) {
-        if (typeof config.webhook.initial_delay_ms !== 'number' || config.webhook.initial_delay_ms < 0) {
-            throw new Error(`webhook.initial_delay_ms must be >= 0 (got: ${config.webhook.initial_delay_ms})`);
-        }
-    } else {
-        config.webhook.initial_delay_ms = 0;
+    // Mode must be specified
+    if (!config.mode) {
+        throw new Error('Missing: mode');
+    }
+    if (config.mode !== 'webhook' && config.mode !== 'polling') {
+        throw new Error(`mode must be 'webhook' or 'polling' (got: ${config.mode})`);
     }
 
-    // Optional webhook retry configuration
-    if (config.webhook.session_retry !== undefined) {
-        config.webhook.session_retry.enabled = config.webhook.session_retry.enabled !== undefined
-            ? config.webhook.session_retry.enabled
-            : true;
+    // Dry run must be specified
+    if (config.dry_run === undefined) {
+        throw new Error('Missing: dry_run');
+    }
+    if (typeof config.dry_run !== 'boolean') {
+        throw new Error(`dry_run must be boolean (got: ${config.dry_run})`);
+    }
 
-        if (config.webhook.session_retry.enabled) {
+    // Check interval required for polling mode
+    if (config.mode === 'polling') {
+        if (!config.check_interval || typeof config.check_interval !== 'number' || config.check_interval <= 0) {
+            throw new Error('check_interval required for polling mode and must be > 0');
+        }
+    }
+
+    // Webhook config required for webhook mode
+    if (config.mode === 'webhook') {
+        if (!config.webhook) {
+            throw new Error('webhook config required for webhook mode');
+        }
+        if (!config.webhook.port || typeof config.webhook.port !== 'number') {
+            throw new Error('webhook.port required and must be a number');
+        }
+        if (!config.webhook.host || typeof config.webhook.host !== 'string') {
+            throw new Error('webhook.host required and must be a string');
+        }
+        if (!config.webhook.path || typeof config.webhook.path !== 'string') {
+            throw new Error('webhook.path required and must be a string');
+        }
+
+        // Optional webhook secret
+        config.webhook.secret = config.webhook.secret || '';
+
+        // Optional initial delay before session lookup
+        if (config.webhook.initial_delay_ms !== undefined) {
+            if (typeof config.webhook.initial_delay_ms !== 'number' || config.webhook.initial_delay_ms < 0) {
+                throw new Error(`webhook.initial_delay_ms must be >= 0 (got: ${config.webhook.initial_delay_ms})`);
+            }
+        }
+
+        // Optional webhook retry configuration
+        if (config.webhook.session_retry !== undefined) {
             if (typeof config.webhook.session_retry.max_attempts !== 'number' || config.webhook.session_retry.max_attempts < 1) {
                 throw new Error(`webhook.session_retry.max_attempts must be >= 1 (got: ${config.webhook.session_retry.max_attempts})`);
             }
