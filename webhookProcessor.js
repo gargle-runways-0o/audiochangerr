@@ -9,8 +9,9 @@ const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started'];
  * Webhooks can arrive before Plex creates the session.
  */
 async function findSessionWithRetry(ratingKey, playerUuid, config) {
-    const maxRetries = config.webhook?.session_retry?.max_attempts || 1;
-    const initialDelayMs = config.webhook?.session_retry?.initial_delay_ms || 0;
+    const retryEnabled = config.webhook?.session_retry?.enabled || false;
+    const maxRetries = retryEnabled ? config.webhook.session_retry.max_attempts : 1;
+    const initialDelayMs = retryEnabled ? config.webhook.session_retry.initial_delay_ms : 0;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const sessions = await plexClient.fetchSessions();
 

@@ -73,11 +73,17 @@ function loadConfig() {
 
     // Optional webhook retry configuration
     if (config.webhook.session_retry !== undefined) {
-        if (typeof config.webhook.session_retry.max_attempts !== 'number' || config.webhook.session_retry.max_attempts < 1) {
-            throw new Error(`webhook.session_retry.max_attempts must be >= 1 (got: ${config.webhook.session_retry.max_attempts})`);
-        }
-        if (typeof config.webhook.session_retry.initial_delay_ms !== 'number' || config.webhook.session_retry.initial_delay_ms < 0) {
-            throw new Error(`webhook.session_retry.initial_delay_ms must be >= 0 (got: ${config.webhook.session_retry.initial_delay_ms})`);
+        config.webhook.session_retry.enabled = config.webhook.session_retry.enabled !== undefined
+            ? config.webhook.session_retry.enabled
+            : true;
+
+        if (config.webhook.session_retry.enabled) {
+            if (typeof config.webhook.session_retry.max_attempts !== 'number' || config.webhook.session_retry.max_attempts < 1) {
+                throw new Error(`webhook.session_retry.max_attempts must be >= 1 (got: ${config.webhook.session_retry.max_attempts})`);
+            }
+            if (typeof config.webhook.session_retry.initial_delay_ms !== 'number' || config.webhook.session_retry.initial_delay_ms < 0) {
+                throw new Error(`webhook.session_retry.initial_delay_ms must be >= 0 (got: ${config.webhook.session_retry.initial_delay_ms})`);
+            }
         }
     }
 
