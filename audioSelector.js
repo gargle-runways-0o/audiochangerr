@@ -1,15 +1,11 @@
 const logger = require('./logger');
+const { getStreamsFromMetadata } = require('./mediaHelpers');
 
 function selectBestAudioStream(mediaInfo, currentStreamId, audioSelectorConfig) {
     logger.debug(`Stream selection: media ${mediaInfo.ratingKey}`);
     logger.debug(`Current stream: ${currentStreamId}`);
 
-    if (!mediaInfo.Media || !mediaInfo.Media[0].Part || !mediaInfo.Media[0].Part[0].Stream) {
-        logger.warn(`No stream data: ${mediaInfo.ratingKey}`);
-        return undefined;
-    }
-
-    const streams = mediaInfo.Media[0].Part[0].Stream;
+    const streams = getStreamsFromMetadata(mediaInfo);
     const allAudioStreams = streams.filter(s => s.streamType === 2);
     const audioStreams = allAudioStreams.filter(s => String(s.id) !== String(currentStreamId));
 

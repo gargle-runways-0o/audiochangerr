@@ -1,6 +1,7 @@
 const logger = require('./logger');
 const plexClient = require('./plexClient');
 const audioSelector = require('./audioSelector');
+const { getStreamsFromSession, getPartId } = require('./mediaHelpers');
 
 const processedMedia = new Set();
 
@@ -28,7 +29,8 @@ async function waitForSessionRestart(originalSession, expectedStreamId, maxWaitS
                 return false;
             }
 
-            const activeStream = newSession.Media[0].Part[0].Stream.find(s => s.streamType === 2 && s.selected);
+            const streams = getStreamsFromSession(newSession);
+            const activeStream = streams.find(s => s.streamType === 2 && s.selected);
             logger.debug(`Active stream: ${JSON.stringify(activeStream)}`);
 
             if (activeStream && String(activeStream.id) === String(expectedStreamId)) {
@@ -36,7 +38,7 @@ async function waitForSessionRestart(originalSession, expectedStreamId, maxWaitS
                 return true;
             } else {
                 logger.error(`Wrong stream: got ${activeStream?.id}, expected ${expectedStreamId}`);
-                logger.debug(`All streams: ${JSON.stringify(newSession.Media[0].Part[0].Stream, null, 2)}`);
+                logger.debug(`All streams: ${JSON.stringify(streams, null, 2)}`);
                 return false;
             }
         }
@@ -53,7 +55,8 @@ async function processTranscodingSession(session, config) {
         const mediaInfo = await plexClient.fetchMetadata(session.ratingKey);
         // No need to check for null - function throws on error
 
-        const currentStream = session.Media[0].Part[0].Stream.find(s => s.streamType === 2 && s.selected);
+        const streams = getStreamsFromSession(session);
+        const currentStream = streams.find(s => s.streamType === 2 && s.selected);
         if (!currentStream) {
             logger.warn(`No current audio stream: ${session.Player.title}`);
             return false;
@@ -72,12 +75,7 @@ async function processTranscodingSession(session, config) {
 
         logger.info(`Better stream: ${bestStream.codec.toUpperCase()} ${bestStream.channels}ch (ID: ${bestStream.id})`);
 
-        if (!session.Media || !session.Media[0] || !session.Media[0].Part || !session.Media[0].Part[0]) {
-            logger.error(`Missing media part: session ${session.sessionKey}`);
-            return false;
-        }
-
-        const partId = session.Media[0].Part[0].id;
+        const partId = getPartId(session);
         let userTokenToUse = undefined;
         const sessionUsername = session.User.title;
 

@@ -4,15 +4,19 @@ const xml2js = require('xml2js');
 
 let plexApi;
 
-function init(config) {
-    plexApi = axios.create({
-        baseURL: config.plex_server_url,
+function createPlexClient(baseURL, token, accept = 'application/json', timeout = 600000) {
+    return axios.create({
+        baseURL,
         headers: {
-            'X-Plex-Token': config.plex_token,
-            'Accept': 'application/json',
+            'X-Plex-Token': token,
+            'Accept': accept
         },
-        timeout: 600000,
+        timeout
     });
+}
+
+function init(config) {
+    plexApi = createPlexClient(config.plex_server_url, config.plex_token);
 }
 
 async function fetchSessions() {
@@ -121,14 +125,11 @@ async function getUserDetailsFromXml(xml) {
 
 async function fetchManagedUserTokens() {
     try {
-        const plexTvApi = axios.create({
-            baseURL: 'https://plex.tv',
-            headers: {
-                'X-Plex-Token': plexApi.defaults.headers['X-Plex-Token'],
-                'Accept': 'application/xml',
-            },
-            timeout: 600000,
-        });
+        const plexTvApi = createPlexClient(
+            'https://plex.tv',
+            plexApi.defaults.headers['X-Plex-Token'],
+            'application/xml'
+        );
 
         const resourcesResponse = await plexTvApi.get('/api/resources');
         const parser = new xml2js.Parser();
