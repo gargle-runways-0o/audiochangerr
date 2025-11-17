@@ -8,7 +8,8 @@ Detects transcoding sessions → finds compatible audio stream → switches trac
 
 ## Features
 
-- **Dual modes**: Webhook (Plex Pass, instant) or Polling (no Plex Pass, 0-10s delay)
+- **Dual modes**: Webhook (Plex Pass or Tautulli, instant) or Polling (no Plex Pass, 0-10s delay)
+- **Multiple webhook sources**: Native Plex webhooks or Tautulli webhooks
 - **Audio selection rules**: codec, channels, language, keywords
 - **Dry run mode**: test without changes
 - **Docker ready**
@@ -75,7 +76,7 @@ mode: "polling"
 check_interval: 10  # seconds
 ```
 
-**Webhook** (requires Plex Pass):
+**Webhook** (requires Plex Pass OR Tautulli):
 ```yaml
 mode: "webhook"
 webhook:
@@ -85,9 +86,13 @@ webhook:
   secret: ""  # Optional: shared secret for authentication
 ```
 
+**Webhook Sources**:
+- **Plex**: Direct integration, requires Plex Pass
+- **Tautulli**: No Plex Pass required, requires Tautulli installation
+
 **Security**: Set `webhook.secret` to require `X-Webhook-Secret` header. Recommended for internet-exposed webhooks.
 
-See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for webhook configuration.
+See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for detailed webhook configuration (Plex and Tautulli).
 
 ### Audio Selection
 
