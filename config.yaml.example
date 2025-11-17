@@ -13,6 +13,16 @@ dry_run: true    # true = test mode, false = apply changes
 
 validation_timeout_seconds: 120  # Time to wait for session restart validation
 
+# File Logging (optional)
+# Outputs logs to files with automatic rotation
+# Disabled by default - logs go to console only
+# logging:
+#   enabled: true              # Enable file logging
+#   directory: "/logs"         # Log directory (created if missing)
+#   max_size: "20m"            # Max file size before rotation (e.g., 20m, 100k, 1g)
+#   max_files: "14d"           # Retention: "14d" = 14 days, "10" = 10 files
+#   level: "info"              # File log level: error, warn, info, debug
+
 # Polling mode (only used when mode: "polling")
 check_interval: 10  # Seconds between checks
 

@@ -81,6 +81,12 @@ async function main() {
     try {
         config = loadConfig();
         logger.info('Config loaded');
+
+        // Configure file logging if enabled in config
+        if (config.logging) {
+            logger.configureFileLogging(config.logging);
+        }
+
         logger.info(`Mode: ${config.mode}`);
         logger.info(`Dry run: ${config.dry_run ? 'ENABLED' : 'DISABLED'}`);
 

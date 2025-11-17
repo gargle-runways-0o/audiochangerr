@@ -139,6 +139,44 @@ function loadConfig() {
         throw new Error(`Unsupported config version: ${config.config_version}. This version supports: 1`);
     }
 
+    // Optional logging configuration
+    if (config.logging !== undefined) {
+        if (typeof config.logging !== 'object') {
+            throw new Error('logging must be an object');
+        }
+
+        // Validate logging.enabled
+        if (config.logging.enabled !== undefined && typeof config.logging.enabled !== 'boolean') {
+            throw new Error('logging.enabled must be boolean');
+        }
+
+        // Only validate other fields if logging is enabled
+        if (config.logging.enabled === true) {
+            // Validate directory
+            if (config.logging.directory !== undefined && typeof config.logging.directory !== 'string') {
+                throw new Error('logging.directory must be a string');
+            }
+
+            // Validate max_size
+            if (config.logging.max_size !== undefined && typeof config.logging.max_size !== 'string') {
+                throw new Error('logging.max_size must be a string (e.g., "20m", "100k")');
+            }
+
+            // Validate max_files
+            if (config.logging.max_files !== undefined && typeof config.logging.max_files !== 'string') {
+                throw new Error('logging.max_files must be a string (e.g., "14d", "10")');
+            }
+
+            // Validate level
+            if (config.logging.level !== undefined) {
+                const validLevels = ['error', 'warn', 'info', 'debug'];
+                if (!validLevels.includes(config.logging.level)) {
+                    throw new Error(`logging.level must be one of: ${validLevels.join(', ')}`);
+                }
+            }
+        }
+    }
+
     logger.debug(`Loaded: mode=${config.mode}, dry_run=${config.dry_run}`);
 
     return config;
