@@ -7,18 +7,12 @@ const webhookProcessor = require('./webhookProcessor');
 
 let config = null;
 
-/**
- * Finds sessions that are actively transcoding
- */
 function findTranscodes(sessions) {
     return sessions.filter(session => session.TranscodeSession);
 }
 
-/**
- * Polling mode: Periodically checks for transcoding sessions
- */
 function startPollingMode() {
-    logger.info(`Starting POLLING mode (interval: ${config.check_interval}s)`);
+    logger.info(`Starting POLLING (interval: ${config.check_interval}s)`);
 
     setInterval(async () => {
         try {
@@ -37,40 +31,32 @@ function startPollingMode() {
                 }
             }
 
-            // Cleanup stale entries
             audioFixer.cleanupProcessedMedia(sessions);
 
         } catch (error) {
-            logger.error(`Polling loop error: ${error.message}`);
+            logger.error(`Polling error: ${error.message}`);
         }
     }, config.check_interval * 1000);
 }
 
-/**
- * Webhook mode: Starts HTTP server to receive Plex webhook notifications
- */
 function startWebhookMode() {
-    logger.info('Starting WEBHOOK mode');
-    logger.info(`Webhook endpoint will be: http://${config.webhook.host}:${config.webhook.port}${config.webhook.path}`);
+    logger.info('Starting WEBHOOK');
+    logger.info(`Endpoint: http://${config.webhook.host}:${config.webhook.port}${config.webhook.path}`);
 
-    // Handler for incoming webhooks
     const handleWebhook = async (payload) => {
         await webhookProcessor.processWebhook(payload, config);
     };
 
-    // Start webhook server
     try {
         webhookServer.start(config, handleWebhook);
-        logger.info('Webhook server started successfully');
-        logger.info('Configure Plex webhook URL in: Plex Web App → Account → Webhooks');
+        logger.info('Webhook started');
+        logger.info('Configure: Plex Web → Account → Webhooks');
     } catch (error) {
-        logger.error(`Failed to start webhook server: ${error.message}`);
-        logger.error('Falling back to polling mode...');
+        logger.error(`Webhook start failed: ${error.message}`);
+        logger.error('Falling back to polling');
         startPollingMode();
     }
 
-    // Optional: Periodic cleanup of processed media even in webhook mode
-    // This ensures the set doesn't grow indefinitely if sessions end without cleanup
     setInterval(async () => {
         try {
             const sessions = await plexClient.fetchSessions();
@@ -78,51 +64,44 @@ function startWebhookMode() {
         } catch (error) {
             logger.debug(`Cleanup error: ${error.message}`);
         }
-    }, 60000); // Every 60 seconds
+    }, 60000);
 }
 
-/**
- * Main entry point
- */
 async function main() {
     try {
-        // Load configuration
         config = loadConfig();
-        logger.info('Configuration loaded successfully');
+        logger.info('Config loaded');
         logger.info(`Mode: ${config.mode}`);
         logger.info(`Dry run: ${config.dry_run ? 'ENABLED' : 'DISABLED'}`);
 
-        // Initialize Plex client
         plexClient.init(config);
-        logger.info('Plex client initialized');
+        logger.info('Plex initialized');
 
-        // Start appropriate mode
         if (config.mode === 'webhook') {
             startWebhookMode();
         } else if (config.mode === 'polling') {
             startPollingMode();
         } else {
-            throw new Error(`Invalid mode: ${config.mode}. Must be 'webhook' or 'polling'`);
+            throw new Error(`Invalid mode: ${config.mode} (must be 'webhook' or 'polling')`);
         }
 
-        logger.info('Audiochangerr is now running');
+        logger.info('Audiochangerr running');
 
     } catch (error) {
-        logger.error(`Failed to start: ${error.message}`);
+        logger.error(`Start failed: ${error.message}`);
         logger.debug(error.stack);
         process.exit(1);
     }
 }
 
-// Graceful shutdown
 process.on('SIGINT', () => {
-    logger.info('Received SIGINT, shutting down gracefully...');
+    logger.info('SIGINT - shutting down');
     webhookServer.stop();
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-    logger.info('Received SIGTERM, shutting down gracefully...');
+    logger.info('SIGTERM - shutting down');
     webhookServer.stop();
     process.exit(0);
 });

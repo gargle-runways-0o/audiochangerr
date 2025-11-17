@@ -1,11 +1,11 @@
 const logger = require('./logger');
 
 function selectBestAudioStream(mediaInfo, currentStreamId, audioSelectorConfig) {
-    logger.debug(`--- Starting audio stream selection for media ${mediaInfo.ratingKey} ---`);
-    logger.debug(`Current Stream ID: ${currentStreamId}`);
+    logger.debug(`Stream selection: media ${mediaInfo.ratingKey}`);
+    logger.debug(`Current stream: ${currentStreamId}`);
 
     if (!mediaInfo.Media || !mediaInfo.Media[0].Part || !mediaInfo.Media[0].Part[0].Stream) {
-        logger.warn(`Media info for item ${mediaInfo.ratingKey} is missing stream data.`);
+        logger.warn(`No stream data: ${mediaInfo.ratingKey}`);
         return undefined;
     }
 
@@ -13,107 +13,97 @@ function selectBestAudioStream(mediaInfo, currentStreamId, audioSelectorConfig) 
     const allAudioStreams = streams.filter(s => s.streamType === 2);
     const audioStreams = allAudioStreams.filter(s => String(s.id) !== String(currentStreamId));
 
-    logger.debug('All available audio streams:');
+    logger.debug('Available streams:');
     allAudioStreams.forEach(s => {
-        logger.debug(`  ID: ${s.id}, Codec: ${s.codec}, Channels: ${s.channels}, Language: ${s.language}, Title: ${s.extendedDisplayTitle || 'N/A'}, Selected: ${String(s.id) === String(currentStreamId)}`);
+        logger.debug(`  ${s.id}: ${s.codec} ${s.channels}ch ${s.language} "${s.extendedDisplayTitle || 'N/A'}" ${String(s.id) === String(currentStreamId) ? '(current)' : ''}`);
     });
 
     if (audioStreams.length === 0) {
-        logger.debug('No alternative audio streams available after filtering out current stream.');
+        logger.debug('No alternatives');
         return undefined;
     }
 
-    // Find the original/default stream's language if 'original' is specified in a rule
     let originalStreamLanguage = undefined;
     const currentAudioStream = streams.find(s => String(s.id) === String(currentStreamId));
-    logger.debug(`Inspecting currentAudioStream: ${JSON.stringify(currentAudioStream)}`); // ADDED DEBUG
+    logger.debug(`Current: ${JSON.stringify(currentAudioStream)}`);
     if (currentAudioStream && currentAudioStream.language) {
         originalStreamLanguage = currentAudioStream.language.toLowerCase();
-        logger.debug(`Original stream language detected: ${originalStreamLanguage}`);
-    } else {
-        logger.debug('Could not determine original stream language.');
+        logger.debug(`Original language: ${originalStreamLanguage}`);
     }
 
-    // Helper function to check if a stream matches a given rule
     const isStreamMatch = (stream, rule) => {
-        logger.debug(`  Evaluating stream ID ${stream.id} against rule: ${JSON.stringify(rule)}`);
+        logger.debug(`  Eval ${stream.id}: ${JSON.stringify(rule)}`);
 
-        // Apply keywords_exclude first
         if (rule.keywords_exclude && rule.keywords_exclude.length > 0) {
             const streamTitle = stream.extendedDisplayTitle ? stream.extendedDisplayTitle.toLowerCase() : '';
             const matchedKeyword = rule.keywords_exclude.find(keyword => streamTitle.includes(keyword.toLowerCase()));
             if (matchedKeyword) {
-                logger.debug(`    Stream ID ${stream.id} excluded by keyword: "${matchedKeyword}" in title "${stream.extendedDisplayTitle}"`);
-                return false; // Exclude if any keyword matches
+                logger.debug(`    Excluded: "${matchedKeyword}"`);
+                return false;
             }
         }
 
-        // Apply positive filters
         if (rule.codec) {
             if (stream.codec !== rule.codec) {
-                logger.debug(`    Stream ID ${stream.id} failed codec match. Expected: "${rule.codec}", Got: "${stream.codec}"`);
+                logger.debug(`    Codec fail: want ${rule.codec}, got ${stream.codec}`);
                 return false;
-            } else {
-                logger.debug(`    Stream ID ${stream.id} passed codec match: "${rule.codec}"`);
             }
+            logger.debug(`    Codec ok: ${rule.codec}`);
         }
-        if (rule.channels) { // 'channels' is minimum
+
+        if (rule.channels) {
             if (stream.channels < rule.channels) {
-                logger.debug(`    Stream ID ${stream.id} failed channels match. Expected min: ${rule.channels}, Got: ${stream.channels}`);
+                logger.debug(`    Channels fail: want ${rule.channels}, got ${stream.channels}`);
                 return false;
-            } else {
-                logger.debug(`    Stream ID ${stream.id} passed channels match. Expected min: ${rule.channels}, Got: ${stream.channels}`);
             }
+            logger.debug(`    Channels ok: ${stream.channels} >= ${rule.channels}`);
         }
+
         if (rule.language) {
             if (rule.language.toLowerCase() === 'original') {
                 if (!originalStreamLanguage) {
-                    logger.debug(`    Stream ID ${stream.id} failed language match (original). Original language not determined.`);
+                    logger.debug(`    Language fail: original not determined`);
                     return false;
                 }
                 if (stream.language.toLowerCase() !== originalStreamLanguage) {
-                    logger.debug(`    Stream ID ${stream.id} failed language match (original). Expected: "${originalStreamLanguage}", Got: "${stream.language}"`);
+                    logger.debug(`    Language fail: want ${originalStreamLanguage}, got ${stream.language}`);
                     return false;
-                } else {
-                    logger.debug(`    Stream ID ${stream.id} passed language match (original): "${originalStreamLanguage}"`);
                 }
+                logger.debug(`    Language ok: ${originalStreamLanguage}`);
             } else if (stream.language.toLowerCase() !== rule.language.toLowerCase()) {
-                logger.debug(`    Stream ID ${stream.id} failed language match. Expected: "${rule.language}", Got: "${stream.language}"`);
+                logger.debug(`    Language fail: want ${rule.language}, got ${stream.language}`);
                 return false;
             } else {
-                logger.debug(`    Stream ID ${stream.id} passed language match: "${rule.language}"`);
+                logger.debug(`    Language ok: ${rule.language}`);
             }
         }
+
         if (rule.keywords_include && rule.keywords_include.length > 0) {
             const streamTitle = stream.extendedDisplayTitle ? stream.extendedDisplayTitle.toLowerCase() : '';
             const matchedKeyword = rule.keywords_include.find(keyword => streamTitle.includes(keyword.toLowerCase()));
             if (!matchedKeyword) {
-                logger.debug(`    Stream ID ${stream.id} failed keywords_include match. Expected any of: ${rule.keywords_include.join(', ')} in title "${stream.extendedDisplayTitle}"`);
-                return false; // Include only if any keyword matches
-            } else {
-                logger.debug(`    Stream ID ${stream.id} passed keywords_include match: "${matchedKeyword}" in title "${stream.extendedDisplayTitle}"`);
+                logger.debug(`    Include fail: want [${rule.keywords_include.join(', ')}]`);
+                return false;
             }
+            logger.debug(`    Include ok: "${matchedKeyword}"`);
         }
 
-        logger.debug(`  Stream ID ${stream.id} successfully matched all criteria for this rule.`);
+        logger.debug(`  Match: ${stream.id}`);
         return true;
     };
 
-    logger.debug('Evaluating audio streams against configured rules:');
+    logger.debug('Evaluating rules:');
     for (const rule of audioSelectorConfig) {
-        logger.debug(`Attempting to find stream for rule: ${JSON.stringify(rule)}`);
+        logger.debug(`Rule: ${JSON.stringify(rule)}`);
         const matchedStream = audioStreams.find(stream => isStreamMatch(stream, rule));
         if (matchedStream) {
-            logger.debug(`Found stream (ID: ${matchedStream.id}, Codec: ${matchedStream.codec}, Channels: ${matchedStream.channels}, Language: ${matchedStream.language}, Title: ${matchedStream.extendedDisplayTitle}) matching rule: ${JSON.stringify(rule)}`);
-            logger.debug('--- Audio stream selection complete ---');
+            logger.debug(`Selected: ${matchedStream.id} (${matchedStream.codec} ${matchedStream.channels}ch ${matchedStream.language} "${matchedStream.extendedDisplayTitle}")`);
             return matchedStream;
-        } else {
-            logger.debug(`No stream found for rule: ${JSON.stringify(rule)}`);
         }
+        logger.debug(`No match`);
     }
 
-    logger.debug('No streams matched any rule in the audio selector configuration.');
-    logger.debug('--- Audio stream selection complete ---');
+    logger.debug('No streams matched');
     return undefined;
 }
 
