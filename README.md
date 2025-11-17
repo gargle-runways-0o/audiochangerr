@@ -62,11 +62,14 @@ docker run -d \
 plex_server_url: "http://192.168.1.100:32400"
 plex_token: "your-token"
 owner_username: "your-username"
+validation_timeout_seconds: 120
 mode: "polling"  # or "webhook"
 dry_run: true    # false to apply changes
 ```
 
 **Get Plex token**: Open media in Plex Web → Get Info → View XML → copy `X-Plex-Token` from URL
+
+**validation_timeout_seconds**: Maximum time (in seconds) to wait for session restart validation after switching audio tracks. After this timeout, the processing cache is cleared and the media can be processed again. Recommended: 60-180 seconds.
 
 ### Modes
 
@@ -84,6 +87,10 @@ webhook:
   host: "0.0.0.0"
   path: "/webhook"
   secret: ""  # Optional: shared secret for authentication
+  initial_delay_ms: 0  # Optional: delay before first session lookup
+  session_retry:  # Optional: retry if session not found
+    max_attempts: 3
+    initial_delay_ms: 500
 ```
 
 **Webhook Sources**:
@@ -91,6 +98,13 @@ webhook:
 - **Tautulli**: No Plex Pass required, requires Tautulli installation
 
 **Security**: Set `webhook.secret` to require `X-Webhook-Secret` header. Recommended for internet-exposed webhooks.
+
+**Advanced Webhook Options**:
+- `initial_delay_ms`: Delay (in milliseconds) before first session lookup. Useful if webhooks consistently arrive before Plex creates the session. Omit or set to 0 for no delay.
+- `session_retry`: Retry configuration if session not found on first attempt. Webhooks sometimes arrive before Plex has fully created the session in its API.
+  - `max_attempts`: Total number of lookup attempts (including first attempt). Recommended: 1-5.
+  - `initial_delay_ms`: Base delay for exponential backoff between retries. Delays are: delay × 2^0, delay × 2^1, delay × 2^2, etc. Example: 500ms → 500ms, 1000ms, 2000ms, 4000ms.
+  - Omit entire `session_retry` section to disable retries (single attempt only).
 
 See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for detailed webhook configuration (Plex and Tautulli).
 
