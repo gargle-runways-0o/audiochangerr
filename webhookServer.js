@@ -38,7 +38,17 @@ function mapTautulliEvent(eventName) {
  * Tautulli sends different payload structure, we need to convert it
  */
 function normalizeTautulliPayload(body) {
-    // Tautulli typically sends fields like:
+    // Check if already in Plex-compatible format (nested structure)
+    if (body.event && body.Account && body.Player && body.Metadata) {
+        logger.debug(`[TAUTULLI] Payload already in Plex-compatible format`);
+        // Already normalized, just add source tag
+        return {
+            ...body,
+            _source: 'tautulli'
+        };
+    }
+
+    // Otherwise, normalize simple flat format:
     // - event_type, action
     // - rating_key
     // - user, username
@@ -52,7 +62,7 @@ function normalizeTautulliPayload(body) {
     const mediaType = body.media_type || body.type;
     const title = body.title;
 
-    logger.debug(`[TAUTULLI] Normalizing: event=${event}, ratingKey=${ratingKey}, user=${username}, player=${playerUuid}`);
+    logger.debug(`[TAUTULLI] Normalizing simple format: event=${event}, ratingKey=${ratingKey}, user=${username}, player=${playerUuid}`);
 
     return {
         event: mapTautulliEvent(event),
@@ -75,8 +85,14 @@ function normalizeTautulliPayload(body) {
  * Detects if the payload is from Tautulli or Plex
  */
 function isTautulliPayload(body) {
-    // Tautulli indicators: event_type, action, rating_key, machine_id
-    return !!(body.event_type || body.action || body.rating_key);
+    // Tautulli simple format: event_type, action, rating_key, machine_id
+    const hasSimpleFormat = !!(body.event_type || body.action || body.rating_key);
+
+    // Tautulli Plex-compatible format: event field with "media." prefix and nested structure
+    // But NOT the Plex multipart format (which has 'payload' field)
+    const hasPlexCompatibleFormat = !!(body.event && body.event.startsWith('media.') && !body.payload);
+
+    return hasSimpleFormat || hasPlexCompatibleFormat;
 }
 
 function start(config, onWebhook) {

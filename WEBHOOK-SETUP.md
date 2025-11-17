@@ -81,7 +81,9 @@ Expected output:
    - ✓ Playback Start
    - ✓ Playback Resume
 
-7. **Data** tab - Set the following JSON payload:
+7. **Data** tab - Choose one of the payload formats below:
+
+   **Option A: Simple Format (Recommended - Easier)**
    ```json
    {
      "event_type": "{action}",
@@ -93,6 +95,26 @@ Expected output:
    }
    ```
 
+   **Option B: Plex-Compatible Format (More complete)**
+   ```json
+   {
+     "event": "media.{action}",
+     "Account": {
+       "title": "{username}"
+     },
+     "Player": {
+       "title": "{player}",
+       "uuid": "{machine_id}"
+     },
+     "Metadata": {
+       "ratingKey": "{rating_key}",
+       "librarySectionType": "{media_type}",
+       "title": "{title}",
+       "year": "{year}"
+     }
+   }
+   ```
+
 8. **Conditions** tab (optional):
    - Add conditions to filter specific libraries, users, or media types
    - Example: Only trigger for Movies library
@@ -100,13 +122,17 @@ Expected output:
 
 9. Click "Save"
 
-**Tautulli JSON Payload Explained:**
-- `{action}`: "play" or "resume" - will be mapped to internal events
+**Tautulli JSON Payload Variables:**
+- `{action}`: "play" or "resume" - playback action type
 - `{rating_key}`: Unique media identifier (required)
 - `{machine_id}`: Player UUID (required)
 - `{username}`: Plex username
+- `{player}`: Player/device name
 - `{media_type}`: "movie", "episode", "track", etc.
-- `{title}`: Media title for logging
+- `{title}`: Media title
+- `{year}`: Release year
+
+Both formats are supported. Use Simple Format for easier configuration.
 
 ### 4. Test
 

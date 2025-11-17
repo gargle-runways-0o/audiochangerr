@@ -40,6 +40,16 @@ describe('Webhook Server - Tautulli Integration', () => {
         }
 
         function normalizeTautulliPayload(body) {
+            // Check if already in Plex-compatible format (nested structure)
+            if (body.event && body.Account && body.Player && body.Metadata) {
+                // Already normalized, just add source tag
+                return {
+                    ...body,
+                    _source: 'tautulli'
+                };
+            }
+
+            // Otherwise, normalize simple flat format
             const event = body.event_type || body.action;
             const ratingKey = body.rating_key || body.ratingKey;
             const username = body.user || body.username;
@@ -65,7 +75,14 @@ describe('Webhook Server - Tautulli Integration', () => {
         }
 
         function isTautulliPayload(body) {
-            return !!(body.event_type || body.action || body.rating_key);
+            // Tautulli simple format: event_type, action, rating_key, machine_id
+            const hasSimpleFormat = !!(body.event_type || body.action || body.rating_key);
+
+            // Tautulli Plex-compatible format: event field with "media." prefix and nested structure
+            // But NOT the Plex multipart format (which has 'payload' field)
+            const hasPlexCompatibleFormat = !!(body.event && body.event.startsWith('media.') && !body.payload);
+
+            return hasSimpleFormat || hasPlexCompatibleFormat;
         }
 
         // Create webhook endpoint
@@ -202,6 +219,42 @@ describe('Webhook Server - Tautulli Integration', () => {
             expect(onWebhookMock).toHaveBeenCalledWith(
                 expect.objectContaining({
                     event: 'media.play',
+                    _source: 'tautulli'
+                })
+            );
+        });
+
+        test('should accept Plex-compatible Tautulli format', async () => {
+            const plexCompatiblePayload = {
+                event: 'media.play',
+                Account: {
+                    title: 'plexuser'
+                },
+                Player: {
+                    title: 'Living Room TV',
+                    uuid: 'device-789'
+                },
+                Metadata: {
+                    ratingKey: '77777',
+                    librarySectionType: 'movie',
+                    title: 'Test Movie',
+                    year: '2024'
+                }
+            };
+
+            const response = await request(app)
+                .post('/webhook')
+                .send(plexCompatiblePayload)
+                .set('Content-Type', 'application/json');
+
+            expect(response.status).toBe(200);
+            expect(response.body.source).toBe('tautulli');
+            expect(onWebhookMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    event: 'media.play',
+                    Account: { title: 'plexuser' },
+                    Player: expect.objectContaining({ uuid: 'device-789' }),
+                    Metadata: expect.objectContaining({ ratingKey: '77777' }),
                     _source: 'tautulli'
                 })
             );
