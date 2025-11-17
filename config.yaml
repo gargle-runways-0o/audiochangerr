@@ -1,87 +1,41 @@
-# REQUIRED
 plex_server_url: ""
-plex_owner_name: "" # Use this value in place of username to include the owner in groups
-plex_owner_token: ""
-plex_client_identifier: "" # See README on how to obtain
-# REQUIRED END
+plex_token: "" # User must fill this
+owner_username: "" # User must fill this with their Plex username
+check_interval: 10
+dry_run: true
 
-# RUN SETTINGS
-dry_run: True # For testing filters; won't update users. Recommended to test a few times to ensure filters work.
-
-# PARTIAL RUN: Updates newly added media since the last run.
-# WARNING: The first run will update all existing media. Subsequent runs will be faster.
-partial_run_on_start: False
-partial_run_cron_expression: "" # E.g., '0 3 * * *' to run every day at 3:00 am. See crontab.guru
-# CLEAN RUN: Updates all existing media. Should only be used if you want to re-apply a new set of filters on your libraries.
-clean_run_on_start: False
-# RUN SETTINGS END
-
-# MANAGED ACCOUNTS (optional)
-# managed_users:
-#   user1: token
-#   user2: token
-# MANAGED USERS END
-
-# GROUPS
-groups:
-  serialTranscoders:
-    - varthe
-    - UserWithCapitalLetters
-    - $ALL # Will grab all users with access to the library
-  subtitleEnjoyers:
-    - varthe
-  deafPeople:
-    - varthe
-  weebs:
-    - varthe
-    - user4
-# GROUPS END
-
-# FILTERS - See README for explanation
-filters:
-  Movies:
-    serialTranscoders:
-      audio:
-        # Audio Filter 1 - First English audio track that's not TRUEHD/DTS and not a commentary
-        - include:
-            language: English # Needs to be in the original language, e.g Español for Spanish
-            # languageCode: eng # Alternative to the above, e.g. jpn for Japanese
-          exclude:
-            codec:
-              - truehd
-              - dts
-            extendedDisplayTitle: commentary
-        # Audio Filter 2 - Any English track (fallback if the above filter doesn't match)
-        - include:
-            language: English
-    subtitleEnjoyers:
-      subtitles:
-        - include:
-            language: English
-          exclude:
-            extendedDisplayTitle: forced
-    deafPeople:
-      subtitles:
-        - include:
-            extendedDisplayTitle: sdh
-  Anime:
-    weebs:
-      audio:
-        - include:
-            language: English
-          on_match:
-            subtitles: disabled
-        - include:
-            languageCode: jpn # Japenese
-          on_match:
-            subtitles:
-              - include:
-                  language: English
-                  extendedDisplayTitle: full
-              - include:
-                  language: English
-                  extendedDisplayTitle: dialogue
-              - include:
-                  language: English
-                exclude:
-                  extendedDisplayTitle: signs
+# audio_selector: An ordered list of rules for selecting the best audio stream.
+# Rules are processed from top to bottom. The first rule that matches an audio stream
+# will determine the selected stream.
+#
+# Each rule can contain:
+#   - codec (string): The audio codec (e.g., "ac3", "aac").
+#   - channels (integer): The minimum number of channels required (e.g., 6 for 5.1, 2 for stereo).
+#   - language (string): The language of the audio stream. Can be "original" to match the
+#     media's default audio language, or a specific language code (e.g., "eng", "jpn").
+#   - keywords_include (list of strings, optional): If provided, the stream's extendedDisplayTitle
+#     must contain at least one of these keywords to be considered a match for this rule. Example: ["DTS-HD"]
+#   - keywords_exclude (list of strings, optional): If provided, the stream's extendedDisplayTitle
+#     must NOT contain any of these keywords to be considered a match for this rule. Example: ["Commentary"]
+#     Exclusion takes precedence within a rule.
+audio_selector:
+  - codec: "ac3"
+    channels: 6
+    language: "original"
+    keywords_include: [] # 
+    keywords_exclude: ["Commentary", "commentary"]
+  - codec: "ac3"
+    channels: 2
+    language: "original"
+    keywords_include: []
+    keywords_exclude: ["Commentary", "commentary"]
+  - codec: "aac"
+    channels: 6
+    language: "original"
+    keywords_include: []
+    keywords_exclude: ["Commentary", "commentary"]
+  - codec: "aac"
+    channels: 2
+    language: "original"
+    keywords_include: []
+    keywords_exclude: ["Commentary", "commentary"]
