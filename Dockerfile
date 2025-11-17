@@ -4,6 +4,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
-EXPOSE 3189
+EXPOSE 4444
 VOLUME ["/config", "/logs"]
-CMD ["node", "main.js", "/logs", "/config/config.yaml", "/config/last_run_timestamps.json"]
+CMD ["node", "main.js"]

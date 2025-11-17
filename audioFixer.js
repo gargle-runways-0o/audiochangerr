@@ -51,10 +51,7 @@ async function processTranscodingSession(session, config) {
         logger.info(`Transcode: ${session.Player.title} on ${session.Player.device}, user ${session.User.title}`);
 
         const mediaInfo = await plexClient.fetchMetadata(session.ratingKey);
-        if (!mediaInfo) {
-            logger.error(`No metadata: media ${session.ratingKey}`);
-            return false;
-        }
+        // No need to check for null - function throws on error
 
         const currentStream = session.Media[0].Part[0].Stream.find(s => s.streamType === 2 && s.selected);
         if (!currentStream) {

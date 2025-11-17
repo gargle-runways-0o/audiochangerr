@@ -22,24 +22,34 @@ async function fetchSessions() {
     } catch (error) {
         if (error.response) {
             logger.error(`GET /status/sessions: ${error.response.status} ${error.response.statusText}`);
+            logger.debug(error.stack);
+            throw new Error(`Plex API error: ${error.response.status} ${error.response.statusText}`);
         } else {
             logger.error(`GET /status/sessions: ${error.message}`);
+            logger.debug(error.stack);
+            throw error;
         }
-        return [];
     }
 }
 
 async function fetchMetadata(ratingKey) {
     try {
         const response = await plexApi.get(`/library/metadata/${ratingKey}`);
-        return response.data.MediaContainer.Metadata[0];
+        const metadata = response.data.MediaContainer.Metadata[0];
+        if (!metadata) {
+            throw new Error(`No metadata found for ratingKey ${ratingKey}`);
+        }
+        return metadata;
     } catch (error) {
         if (error.response) {
             logger.error(`GET /library/metadata/${ratingKey}: ${error.response.status} ${error.response.statusText}`);
+            logger.debug(error.stack);
+            throw new Error(`Plex metadata fetch failed: ${error.response.status}`);
         } else {
             logger.error(`GET /library/metadata/${ratingKey}: ${error.message}`);
+            logger.debug(error.stack);
+            throw error;
         }
-        return null;
     }
 }
 
@@ -66,13 +76,27 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
 }
 
 async function terminateTranscode(transcodeKey) {
-    await plexApi.delete(transcodeKey);
+    try {
+        await plexApi.delete(transcodeKey);
+        logger.debug(`Terminated transcode: ${transcodeKey}`);
+    } catch (error) {
+        logger.error(`Failed to terminate transcode ${transcodeKey}: ${error.message}`);
+        logger.debug(error.stack);
+        throw error;
+    }
 }
 
 async function terminateSession(sessionId, reason) {
-    await plexApi.get('/status/sessions/terminate', {
-        params: { sessionId, reason }
-    });
+    try {
+        await plexApi.get('/status/sessions/terminate', {
+            params: { sessionId, reason }
+        });
+        logger.debug(`Terminated session: ${sessionId}`);
+    } catch (error) {
+        logger.error(`Failed to terminate session ${sessionId}: ${error.message}`);
+        logger.debug(error.stack);
+        throw error;
+    }
 }
 
 async function getUserDetailsFromXml(xml) {
@@ -128,11 +152,23 @@ async function fetchManagedUserTokens() {
 
     } catch (error) {
         if (error.response) {
-            logger.error(`Fetch managed tokens: ${error.response.status} ${error.response.statusText}`);
+            const status = error.response.status;
+            logger.error(`Fetch managed tokens: ${status} ${error.response.statusText}`);
+
+            // 404 is expected if no managed users - return empty
+            if (status === 404) {
+                logger.info('No managed users found (404 expected)');
+                return {};
+            }
+
+            // Auth or other errors should fail fast
+            logger.debug(error.stack);
+            throw new Error(`Managed user token fetch failed: ${status}`);
         } else {
             logger.error(`Fetch managed tokens: ${error.message}`);
+            logger.debug(error.stack);
+            throw error;
         }
-        return {};
     }
 }
 

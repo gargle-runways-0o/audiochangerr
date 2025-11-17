@@ -24,9 +24,15 @@ function startPollingMode() {
 
             if (newTranscodes.length > 0) {
                 for (const session of newTranscodes) {
-                    const success = await audioFixer.processTranscodingSession(session, config);
-                    if (success) {
-                        audioFixer.markAsProcessed(session.ratingKey);
+                    try {
+                        const success = await audioFixer.processTranscodingSession(session, config);
+                        if (success) {
+                            audioFixer.markAsProcessed(session.ratingKey);
+                        }
+                    } catch (error) {
+                        logger.error(`Failed to process session ${session.ratingKey}: ${error.message}`);
+                        logger.debug(error.stack);
+                        // Continue processing other sessions
                     }
                 }
             }
@@ -34,7 +40,9 @@ function startPollingMode() {
             audioFixer.cleanupProcessedMedia(sessions);
 
         } catch (error) {
-            logger.error(`Polling error: ${error.message}`);
+            logger.error(`Polling cycle failed: ${error.message}`);
+            logger.debug(error.stack);
+            // Interval continues, will retry next cycle
         }
     }, config.check_interval * 1000);
 }
@@ -47,22 +55,19 @@ function startWebhookMode() {
         await webhookProcessor.processWebhook(payload, config);
     };
 
-    try {
-        webhookServer.start(config, handleWebhook);
-        logger.info('Webhook started');
-        logger.info('Configure: Plex Web → Account → Webhooks');
-    } catch (error) {
-        logger.error(`Webhook start failed: ${error.message}`);
-        logger.error('Falling back to polling');
-        startPollingMode();
-    }
+    // Remove try/catch - let errors propagate to main()
+    webhookServer.start(config, handleWebhook);
+    logger.info('Webhook started');
+    logger.info('Configure: Plex Web → Account → Webhooks');
 
+    // Session cleanup interval
     setInterval(async () => {
         try {
             const sessions = await plexClient.fetchSessions();
             audioFixer.cleanupProcessedMedia(sessions);
         } catch (error) {
-            logger.debug(`Cleanup error: ${error.message}`);
+            logger.error(`Cleanup error: ${error.message}`);
+            logger.debug(error.stack);
         }
     }, 60000);
 }
