@@ -5,10 +5,12 @@ const audioFixer = require('./audioFixer');
 const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started'];
 
 /**
- * Searches for a matching session with retry logic.
- * Webhooks often arrive before Plex creates the session, so we retry with backoff.
+ * Searches for a matching session with optional retry logic.
+ * Webhooks can arrive before Plex creates the session.
  */
-async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initialDelayMs = 500) {
+async function findSessionWithRetry(ratingKey, playerUuid, config) {
+    const maxRetries = config.webhook?.session_retry?.max_attempts || 1;
+    const initialDelayMs = config.webhook?.session_retry?.initial_delay_ms || 0;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const sessions = await plexClient.fetchSessions();
 
@@ -56,7 +58,11 @@ async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initi
         }
     }
 
-    logger.warn(`No session found for ${ratingKey} after ${maxRetries} attempts (webhook may have arrived too early)`);
+    if (maxRetries > 1) {
+        logger.warn(`No session found for ${ratingKey} after ${maxRetries} attempts (webhook may have arrived too early)`);
+    } else {
+        logger.debug(`No session found for ${ratingKey} (webhook may have arrived before session created)`);
+    }
     return null;
 }
 
@@ -89,7 +95,7 @@ async function processWebhook(payload, config) {
         if (processingInfo) {
             logger.debug(`Found processing info for ${ratingKey}:${playerUuid}, checking for restart...`);
 
-            const matchingSession = await findSessionWithRetry(ratingKey, playerUuid);
+            const matchingSession = await findSessionWithRetry(ratingKey, playerUuid, config);
             if (matchingSession) {
                 const validationResult = audioFixer.validateSessionRestart(matchingSession, processingInfo);
 
@@ -120,7 +126,7 @@ async function processWebhook(payload, config) {
             return;
         }
 
-        const matchingSession = await findSessionWithRetry(ratingKey, playerUuid);
+        const matchingSession = await findSessionWithRetry(ratingKey, playerUuid, config);
 
         if (!matchingSession) {
             return;
