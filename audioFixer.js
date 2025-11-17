@@ -6,7 +6,7 @@ const { getStreamsFromSession, getPartId } = require('./mediaHelpers');
 // Track processed media with metadata for event-driven validation
 // Structure: ratingKey+playerUuid -> { timestamp, playerUuid, expectedStreamId, originalSessionKey }
 const processedMedia = new Map();
-let validationTimeoutMs = 5 * 60 * 1000; // Default 5 minutes, will be updated from config
+let validationTimeoutMs = null; // Must be set from config via setValidationTimeout()
 
 /**
  * Validates a session after audio track switch.
@@ -45,11 +45,14 @@ function validateSessionRestart(session, processingInfo) {
 }
 
 /**
- * Sets the validation timeout from config
+ * Sets the validation timeout from config (required)
  */
 function setValidationTimeout(timeoutSeconds) {
+    if (!timeoutSeconds || typeof timeoutSeconds !== 'number' || timeoutSeconds <= 0) {
+        throw new Error(`setValidationTimeout requires a positive number (got: ${timeoutSeconds})`);
+    }
     validationTimeoutMs = timeoutSeconds * 1000;
-    logger.debug(`Validation timeout set to ${timeoutSeconds}s`);
+    logger.info(`Validation timeout: ${timeoutSeconds}s`);
 }
 
 async function resolveUserToken(session, config) {
@@ -149,6 +152,10 @@ async function processTranscodingSession(session, config) {
 }
 
 function cleanupProcessedMedia(currentSessions) {
+    if (validationTimeoutMs === null) {
+        throw new Error('validationTimeoutMs not set - call setValidationTimeout() first');
+    }
+
     const now = Date.now();
     const currentSessionKeys = new Set(
         currentSessions.map(s => {
@@ -169,6 +176,10 @@ function cleanupProcessedMedia(currentSessions) {
 }
 
 function getProcessingInfo(ratingKey, playerUuid) {
+    if (validationTimeoutMs === null) {
+        throw new Error('validationTimeoutMs not set - call setValidationTimeout() first');
+    }
+
     const processingKey = `${ratingKey}:${playerUuid}`;
     const processingInfo = processedMedia.get(processingKey);
 
@@ -195,6 +206,10 @@ function clearProcessingInfo(ratingKey, playerUuid) {
 }
 
 function isProcessed(ratingKey) {
+    if (validationTimeoutMs === null) {
+        throw new Error('validationTimeoutMs not set - call setValidationTimeout() first');
+    }
+
     // Check if ANY processing info exists for this ratingKey (any player)
     for (const [processingKey, processingInfo] of processedMedia.entries()) {
         if (processingInfo.ratingKey === ratingKey) {

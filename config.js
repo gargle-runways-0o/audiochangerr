@@ -48,17 +48,21 @@ function loadConfig() {
         throw new Error(`Parse failed: ${error.message}`);
     }
 
-    const required = ['plex_server_url', 'plex_token', 'owner_username'];
+    const required = ['plex_server_url', 'plex_token', 'owner_username', 'validation_timeout_seconds'];
     for (const field of required) {
         if (!config[field] || config[field] === '') {
             throw new Error(`Missing: ${field}`);
         }
     }
 
+    // Validate validation_timeout_seconds is a positive number
+    if (typeof config.validation_timeout_seconds !== 'number' || config.validation_timeout_seconds <= 0) {
+        throw new Error(`validation_timeout_seconds must be a positive number (got: ${config.validation_timeout_seconds})`);
+    }
+
     config.check_interval = config.check_interval || 10;
     config.dry_run = config.dry_run !== undefined ? config.dry_run : true;
     config.mode = config.mode || 'polling';
-    config.validation_timeout_seconds = config.validation_timeout_seconds || 300; // 5 minutes default
 
     config.webhook = config.webhook || {};
     config.webhook.enabled = config.webhook.enabled !== undefined ? config.webhook.enabled : true;
