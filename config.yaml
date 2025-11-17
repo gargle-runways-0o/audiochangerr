@@ -19,6 +19,14 @@ check_interval: 10                         # Seconds between session checks
 # Dry Run Mode
 dry_run: true                              # true = log only, false = apply changes
 
+# File Logging (optional)
+# logging:
+#   enabled: false                         # Enable file logging with rotation
+#   directory: "/logs"                     # Log file directory
+#   max_size: "20m"                        # Max size per file (20m, 100k, etc.)
+#   max_files: "14d"                       # Retention (14d = 14 days, 10 = 10 files)
+#   level: "info"                          # File log level (error, warn, info, debug)
+
 # Audio Selection Rules (first match wins)
 audio_selector:
   - codec: "ac3"                           # Audio codec

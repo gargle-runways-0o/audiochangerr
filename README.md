@@ -39,18 +39,27 @@ docker run -d \
 ## Environment Variables
 
 - `LOG_LEVEL`: Logging verbosity (default: `info`, options: `error`, `warn`, `info`, `debug`)
+- `LOG_TO_FILE`: Enable file logging (default: `false`, set to `true` to enable)
+- `LOG_DIRECTORY`: Log file directory (default: `/logs`)
+- `LOG_MAX_SIZE`: Max log file size before rotation (default: `20m`, e.g., `100k`, `50m`, `1g`)
+- `LOG_MAX_FILES`: Log retention (default: `14d`, e.g., `7d` for 7 days, `10` for 10 files)
 
 Example:
 ```bash
 LOG_LEVEL=debug npm start
 ```
 
-Docker:
+Docker with file logging:
 ```bash
 docker run -d \
   --name audiochangerr \
   -e LOG_LEVEL=debug \
+  -e LOG_TO_FILE=true \
+  -e LOG_DIRECTORY=/logs \
+  -e LOG_MAX_SIZE=20m \
+  -e LOG_MAX_FILES=14d \
   -v /path/to/config:/config \
+  -v /path/to/logs:/logs \
   -p 4444:4444 \
   audiochangerr
 ```
@@ -105,6 +114,30 @@ webhook:
   - Omit entire `session_retry` section to disable retries (single attempt only).
 
 See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for detailed webhook configuration (Plex and Tautulli).
+
+### File Logging
+
+Enable persistent logging to files with automatic rotation:
+
+```yaml
+logging:
+  enabled: true
+  directory: "/logs"
+  max_size: "20m"
+  max_files: "14d"
+  level: "info"
+```
+
+**Options**:
+- `enabled`: `true` to enable file logging, `false` for console only (default: `false`)
+- `directory`: Log file location (default: `/logs`). Created automatically if missing.
+- `max_size`: Max file size before rotation. Format: `20m` (20 MB), `100k` (100 KB), `1g` (1 GB)
+- `max_files`: Retention policy. Format: `14d` (14 days), `30d` (30 days), or `10` (keep 10 files)
+- `level`: Minimum log level for files: `error`, `warn`, `info`, `debug` (default: `info`)
+
+**Log file naming**: `audiochangerr-YYYY-MM-DD.log` (e.g., `audiochangerr-2025-11-17.log`)
+
+**Environment variable alternative**: Use `LOG_TO_FILE=true` instead of config.yaml (see Environment Variables section)
 
 ### Audio Selection
 
@@ -217,6 +250,40 @@ Applies only when `mode: "webhook"`.
 **Type**: Integer | **Required**: When `mode: "polling"` | **Default**: `10`
 **Description**: Seconds between session checks. Lower = faster detection + more API calls. Higher = slower detection + fewer API calls.
 **Range**: 5-30s
+
+### Logging Settings
+
+#### `logging`
+**Type**: Object | **Optional**: Yes
+**Description**: File logging configuration with automatic rotation. Omit entire section to disable file logging (console only).
+
+#### `logging.enabled`
+**Type**: Boolean | **Required**: Yes (if `logging` specified) | **Default**: `false`
+**Description**: Enable file logging. `true` = logs to both console and files, `false` = console only.
+
+#### `logging.directory`
+**Type**: String | **Optional**: Yes | **Default**: `/logs`
+**Description**: Directory for log files. Created automatically if missing. Use absolute path.
+**Example**: `/var/log/audiochangerr`, `./logs`, `/logs`
+
+#### `logging.max_size`
+**Type**: String | **Optional**: Yes | **Default**: `20m`
+**Description**: Maximum file size before rotation.
+**Format**: Number + unit (`k` = KB, `m` = MB, `g` = GB)
+**Examples**: `20m` (20 MB), `100k` (100 KB), `1g` (1 GB)
+
+#### `logging.max_files`
+**Type**: String | **Optional**: Yes | **Default**: `14d`
+**Description**: Log retention policy.
+**Format**: Days (`Xd`) or file count (number)
+**Examples**: `14d` (keep 14 days), `30d` (30 days), `10` (keep 10 files)
+
+#### `logging.level`
+**Type**: String | **Optional**: Yes | **Default**: `info`
+**Options**: `error`, `warn`, `info`, `debug`
+**Description**: Minimum log level for file output. Console uses `LOG_LEVEL` environment variable.
+
+**Log File Format**: `audiochangerr-YYYY-MM-DD.log` (daily rotation)
 
 ### Audio Selection Rules
 
