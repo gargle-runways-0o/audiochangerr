@@ -88,6 +88,15 @@ function loadConfig() {
         if (!config.webhook) {
             throw new Error('webhook config required for webhook mode');
         }
+
+        // webhook.enabled defaults to true if not specified
+        if (config.webhook.enabled === undefined) {
+            config.webhook.enabled = true;
+        }
+        if (typeof config.webhook.enabled !== 'boolean') {
+            throw new Error('webhook.enabled must be boolean');
+        }
+
         if (!config.webhook.port || typeof config.webhook.port !== 'number') {
             throw new Error('webhook.port required and must be a number');
         }

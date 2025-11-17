@@ -22,7 +22,7 @@ dry_run: true                              # true = log only, false = apply chan
 # Audio Selection Rules (first match wins)
 audio_selector:
   - codec: "ac3"                           # Audio codec
-    channels: 6                            # Channel count (2, 6, 8)
+    channels: 6                            # Min channels (>= match)
     language: "original"                   # "original" or ISO code
     keywords_include: []                   # Match any keyword
     keywords_exclude: ["Commentary", "commentary"]  # Exclude keywords

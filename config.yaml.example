@@ -56,7 +56,7 @@ audio_selector:
 
 # Rule options:
 # - codec: aac, ac3, eac3, dts, dts-hd, truehd, flac, mp3, opus, vorbis, pcm
-# - channels: 1-8 (2=stereo, 6=5.1, 8=7.1)
+# - channels: minimum 1-8 (>= match, e.g., 6 matches 6ch or 8ch)
 # - language: "original" or ISO 639-2/3 code (eng, jpn, spa, fre, ger, etc.)
 # - keywords_include: Array of keywords (must match ANY)
 # - keywords_exclude: Array of keywords (must match NONE)

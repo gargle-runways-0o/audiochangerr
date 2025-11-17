@@ -69,8 +69,6 @@ dry_run: true    # false to apply changes
 
 **Get Plex token**: Open media in Plex Web → Get Info → View XML → copy `X-Plex-Token` from URL
 
-**validation_timeout_seconds**: Maximum time (in seconds) to wait for session restart validation after switching audio tracks. After this timeout, the processing cache is cleared and the media can be processed again. Recommended: 60-180 seconds.
-
 ### Modes
 
 **Polling** (default):
@@ -123,7 +121,7 @@ audio_selector:
 
 **Options**:
 - `codec`: aac, ac3, eac3, dts, dts-hd, truehd, flac, mp3, opus, vorbis, pcm
-- `channels`: 1-8 (2=stereo, 6=5.1, 8=7.1)
+- `channels`: minimum count 1-8 (matches >= specified, e.g., 6 matches 6ch or 8ch)
 - `language`: "original" or ISO code (eng, jpn, spa, etc.)
 - `keywords_include`: match any keyword (array)
 - `keywords_exclude`: exclude any keyword (array)
@@ -160,6 +158,11 @@ Rules process top to bottom. First match wins.
 #### `dry_run`
 **Type**: Boolean | **Required**: Yes | **Default**: `true`
 **Description**: `true` = log only, `false` = apply changes. Test with `true` before production.
+
+#### `validation_timeout_seconds`
+**Type**: Integer | **Required**: Yes | **Default**: `120`
+**Description**: Max wait time for session restart after track switch. Timeout clears processing cache, allows retry.
+**Range**: 60-180s
 
 ### Webhook Settings
 
@@ -236,7 +239,7 @@ Applies only when `mode: "webhook"`.
 ##### `channels`
 **Type**: Integer | **Required**: Yes
 **Options**: 1-8 (2=stereo, 6=5.1, 8=7.1)
-**Description**: Channel count to match.
+**Description**: Minimum channel count (matches streams with >= channels).
 
 ##### `language`
 **Type**: String | **Required**: Yes
@@ -266,12 +269,6 @@ audio_selector:
 ```
 
 ### Optional Advanced Settings
-
-#### `validation_timeout_seconds`
-**Type**: Integer | **Optional**: Yes | **Default**: `120`
-**Description**: Max wait time for session restart after track switch. Timeout clears processing cache, allows retry.
-**Range**: 60-180s
-**Trade-off**: Longer = prevents re-processing slow restarts. Shorter = faster retry on failures.
 
 #### `config_version`
 **Type**: Integer | **Optional**: Yes | **Current**: `1`
