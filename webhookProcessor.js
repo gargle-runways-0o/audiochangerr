@@ -14,14 +14,6 @@ async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initi
 
         if (attempt === 0) {
             logger.debug(`Active sessions: ${sessions.length}`);
-
-            // Debug: Log what sessions we actually have
-            if (sessions.length > 0 && !sessions.find(s => String(s.ratingKey) === String(ratingKey))) {
-                logger.debug(`Session details for debugging:`);
-                sessions.forEach((s, idx) => {
-                    logger.debug(`  [${idx}] ratingKey=${s.ratingKey}, player=${s.Player?.uuid}, type=${s.type}, title=${s.title || s.grandparentTitle}`);
-                });
-            }
         }
 
         const matchingSession = sessions.find(s =>
@@ -34,6 +26,15 @@ async function findSessionWithRetry(ratingKey, playerUuid, maxRetries = 5, initi
                 logger.info(`Session found after ${attempt + 1} attempts (${ratingKey})`);
             }
             return matchingSession;
+        }
+
+        // Debug: Log what sessions we actually have when no match found
+        if (attempt === 0 && sessions.length > 0) {
+            logger.debug(`No match found. Wanted: ratingKey=${ratingKey}, player=${playerUuid}`);
+            logger.debug(`Session details for debugging:`);
+            sessions.forEach((s, idx) => {
+                logger.debug(`  [${idx}] ratingKey=${s.ratingKey}, player=${s.Player?.uuid}, type=${s.type}, title=${s.title || s.grandparentTitle}`);
+            });
         }
 
         // Not the last attempt, wait and retry
