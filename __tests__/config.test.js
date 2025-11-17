@@ -1,4 +1,4 @@
-// Mock modules before requiring config module
+// Mock logger module
 jest.mock('../logger', () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -6,27 +6,32 @@ jest.mock('../logger', () => ({
     error: jest.fn()
 }));
 
-// Mock fs module with auto-mocking
+// Mock fs module - use a factory function that returns mockable functions
+const mockExistsSync = jest.fn();
+const mockReadFileSync = jest.fn();
+
 jest.mock('fs', () => ({
-    existsSync: jest.fn(),
-    readFileSync: jest.fn()
+    existsSync: mockExistsSync,
+    readFileSync: mockReadFileSync
 }));
 
-const fs = require('fs');
-const path = require('path');
 const yaml = require('js-yaml');
 
 describe('config validation', () => {
     let loadConfig;
 
     beforeEach(() => {
-        // Clear module cache to get fresh config module
-        jest.resetModules();
-        loadConfig = require('../config').loadConfig;
-    });
-
-    afterEach(() => {
+        // Clear all mocks
         jest.clearAllMocks();
+
+        // Reset modules to get fresh config module
+        jest.resetModules();
+
+        // Default mock behavior: file exists
+        mockExistsSync.mockReturnValue(true);
+
+        // Require config module AFTER setting up mocks
+        loadConfig = require('../config').loadConfig;
     });
 
     describe('audio_selector validation', () => {
@@ -42,8 +47,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ codec: 'ac3' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -53,8 +57,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ codec: 'invalid_codec' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Invalid codec in rule 0.*invalid_codec/);
         });
@@ -64,8 +67,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ channels: 6 }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -75,8 +77,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ channels: 0 }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Invalid channels in rule 0.*Must be 1-8/);
         });
@@ -86,8 +87,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ channels: 10 }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Invalid channels in rule 0.*Must be 1-8/);
         });
@@ -97,8 +97,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ language: 'original' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -108,8 +107,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ language: 'eng' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -119,8 +117,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ language: 'invalid123' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Invalid language in rule 0/);
         });
@@ -130,8 +127,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ keywords_include: ['Surround', '5.1'] }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -141,8 +137,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ keywords_include: 'not_an_array' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Invalid keywords_include in rule 0.*must be array/);
         });
@@ -152,8 +147,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ keywords_exclude: ['Commentary'] }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -163,8 +157,7 @@ describe('config validation', () => {
                 ...validConfig,
                 audio_selector: [{ keywords_exclude: 'not_an_array' }]
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Invalid keywords_exclude in rule 0.*must be array/);
         });
@@ -183,15 +176,13 @@ describe('config validation', () => {
                 ...validConfig,
                 config_version: 1
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).not.toThrow();
         });
 
         it('should accept missing config_version', () => {
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(validConfig));
+            mockReadFileSync.mockReturnValue(yaml.dump(validConfig));
 
             expect(() => loadConfig()).not.toThrow();
         });
@@ -201,8 +192,7 @@ describe('config validation', () => {
                 ...validConfig,
                 config_version: 2
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Unsupported config version: 2/);
         });
@@ -215,8 +205,7 @@ describe('config validation', () => {
                 owner_username: 'test_user',
                 audio_selector: []
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Missing: plex_server_url/);
         });
@@ -227,8 +216,7 @@ describe('config validation', () => {
                 owner_username: 'test_user',
                 audio_selector: []
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Missing: plex_token/);
         });
@@ -239,8 +227,7 @@ describe('config validation', () => {
                 plex_token: 'test_token',
                 audio_selector: []
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/Missing: owner_username/);
         });
@@ -251,8 +238,7 @@ describe('config validation', () => {
                 plex_token: 'test_token',
                 owner_username: 'test_user'
             };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(yaml.dump(config));
+            mockReadFileSync.mockReturnValue(yaml.dump(config));
 
             expect(() => loadConfig()).toThrow(/audio_selector must be array/);
         });
