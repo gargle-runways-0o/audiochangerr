@@ -50,15 +50,60 @@ async function waitForSessionRestart(originalSession, expectedStreamId, maxWaitS
     return false;
 }
 
+async function resolveUserToken(session, config) {
+    const sessionUsername = session.User.title;
+    const managedUserTokens = await plexClient.fetchManagedUserTokens();
+    logger.debug(`User: ${JSON.stringify(session.User, null, 2)}`);
+
+    if (sessionUsername === config.owner_username) {
+        logger.debug(`Owner (${sessionUsername}): using owner token`);
+        return config.plex_token;
+    }
+
+    if (managedUserTokens[session.User.id]) {
+        logger.debug(`Managed user ${session.User.id}: using fetched token`);
+        return managedUserTokens[session.User.id];
+    }
+
+    logger.warn(`User '${sessionUsername}' (${session.User.id}): not owner or managed, skipping`);
+    return null;
+}
+
+async function switchToStreamAndRestart(session, bestStream, userToken, config) {
+    const partId = getPartId(session);
+    await plexClient.setSelectedAudioStream(partId, bestStream.id, userToken, config.dry_run);
+
+    if (config.dry_run) {
+        logger.info(`[DRY RUN] Terminate transcode: ${session.TranscodeSession.key}`);
+        logger.info(`[DRY RUN] Terminate session: ${session.Session.id}`);
+        return true;
+    }
+
+    await plexClient.terminateTranscode(session.TranscodeSession.key);
+    logger.info(`Terminated transcode: ${session.TranscodeSession.key}`);
+
+    const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
+    await plexClient.terminateSession(session.Session.id, reason);
+    logger.info(`Terminated session: ${session.Session.id}`);
+
+    const validated = await waitForSessionRestart(session, bestStream.id);
+    if (validated) {
+        logger.info(`Success: media ${session.ratingKey}`);
+        return true;
+    }
+
+    logger.error(`Validation failed: media ${session.ratingKey}, will retry if persists`);
+    return false;
+}
+
 async function processTranscodingSession(session, config) {
     try {
         logger.info(`Transcode: ${session.Player.title} on ${session.Player.device}, user ${session.User.title}`);
 
         const mediaInfo = await plexClient.fetchMetadata(session.ratingKey);
-        // No need to check for null - function throws on error
-
         const streams = getStreamsFromSession(session);
         const currentStream = streams.find(s => s.streamType === 2 && s.selected);
+
         if (!currentStream) {
             logger.warn(`No current audio stream: ${session.Player.title}`);
             return false;
@@ -77,48 +122,13 @@ async function processTranscodingSession(session, config) {
 
         logger.info(`Better stream: ${bestStream.codec.toUpperCase()} ${bestStream.channels}ch (ID: ${bestStream.id})`);
 
-        const partId = getPartId(session);
-        let userTokenToUse = undefined;
-        const sessionUsername = session.User.title;
-
-        const managedUserTokens = await plexClient.fetchManagedUserTokens();
-        logger.debug(`User: ${JSON.stringify(session.User, null, 2)}`);
-
-        if (sessionUsername === config.owner_username) {
-            userTokenToUse = config.plex_token;
-            logger.debug(`Owner (${sessionUsername}): using owner token`);
-        } else if (managedUserTokens[session.User.id]) {
-            userTokenToUse = managedUserTokens[session.User.id];
-            logger.debug(`Managed user ${session.User.id}: using fetched token`);
-        } else {
-            logger.warn(`User '${sessionUsername}' (${session.User.id}): not owner or managed, skipping`);
+        const userToken = await resolveUserToken(session, config);
+        if (!userToken) {
             return false;
         }
 
         try {
-            await plexClient.setSelectedAudioStream(partId, bestStream.id, userTokenToUse, config.dry_run);
-
-            if (config.dry_run) {
-                logger.info(`[DRY RUN] Terminate transcode: ${session.TranscodeSession.key}`);
-                logger.info(`[DRY RUN] Terminate session: ${session.Session.id}`);
-                return true;
-            } else {
-                await plexClient.terminateTranscode(session.TranscodeSession.key);
-                logger.info(`Terminated transcode: ${session.TranscodeSession.key}`);
-
-                const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
-                await plexClient.terminateSession(session.Session.id, reason);
-                logger.info(`Terminated session: ${session.Session.id}`);
-
-                const validated = await waitForSessionRestart(session, bestStream.id);
-                if (validated) {
-                    logger.info(`Success: media ${session.ratingKey}`);
-                    return true;
-                } else {
-                    logger.error(`Validation failed: media ${session.ratingKey}, will retry if persists`);
-                    return false;
-                }
-            }
+            return await switchToStreamAndRestart(session, bestStream, userToken, config);
         } catch (error) {
             logger.error(`Fix failed: ${error.message}`);
             return false;
