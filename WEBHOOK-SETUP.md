@@ -300,12 +300,200 @@ webhook:
 
 ## Security
 
-**Private server**: No authentication needed.
+### Multi-Layered Security Approach (Recommended)
 
-**Public deployment**:
-- Use reverse proxy with authentication
-- Enable HTTPS
-- Restrict firewall to Plex server IPs
+Audiochangerr implements defense-in-depth security with multiple layers:
+
+#### Layer 1: Application-Level IP Filtering (Default: Enabled)
+
+**Explicit network configuration (required):**
+
+```yaml
+webhook:
+  local_only: true  # Blocks IPs not in allowed_networks
+
+  # REQUIRED when local_only: true
+  allowed_networks:
+    - "127.0.0.0/8"       # Localhost
+    - "192.168.1.0/24"    # Your home network
+    - "10.0.0.5"          # Specific VPN server
+```
+
+**What it does:**
+- ✅ Allows only IPs/networks explicitly listed in `allowed_networks`
+- ✅ Supports CIDR notation and individual IPs
+- ❌ Blocks all IPs not in allowed list with 403 Forbidden
+- 📝 Logs blocked attempts: `[SECURITY] Blocked webhook from <IP> (not in allowed networks)`
+- 📋 Logs allowed networks on startup
+- ⚠️ **Fails fast** if `allowed_networks` not specified when `local_only: true`
+
+**When to disable local_only:**
+- ⚠️ Only if using authenticated reverse proxy (e.g., nginx with basic auth, OAuth)
+- ⚠️ Only if reverse proxy handles IP filtering/authentication
+
+**Configuration examples:**
+
+```yaml
+# Example 1: Typical home network (recommended starting point)
+webhook:
+  local_only: true
+  allowed_networks:
+    - "127.0.0.0/8"       # Localhost
+    - "192.168.0.0/16"    # All 192.168.x.x networks
+    - "10.0.0.0/8"        # Private Class A
+    - "::1/128"           # IPv6 localhost
+
+# Example 2: Restrict to specific subnet only (most secure)
+webhook:
+  local_only: true
+  allowed_networks:
+    - "192.168.1.0/24"    # Only devices on 192.168.1.x
+
+# Example 3: Multiple specific networks
+webhook:
+  local_only: true
+  allowed_networks:
+    - "192.168.1.0/24"    # Home network
+    - "10.8.0.0/24"       # VPN network
+    - "172.20.0.5"        # Specific server IP
+
+# Example 4: Disable filtering (use only with reverse proxy)
+webhook:
+  local_only: false
+  # allowed_networks not required when local_only: false
+```
+
+#### Layer 2: Docker Network Isolation
+
+**Bind to specific network interface:**
+
+```bash
+# Option A: Localhost only (most secure, requires reverse proxy)
+docker run -p 127.0.0.1:4444:4444 audiochangerr
+
+# Option B: Specific local IP (recommended for LAN access)
+docker run -p 192.168.1.50:4444:4444 audiochangerr
+
+# Option C: All interfaces (relies on app-level filtering)
+docker run -p 4444:4444 audiochangerr  # or -p 0.0.0.0:4444:4444
+```
+
+**Recommendation:** Use Option B (specific IP) for best balance of security and accessibility.
+
+#### Layer 3: Firewall Rules (Defense in Depth)
+
+**Restrict at OS level:**
+
+```bash
+# UFW (Ubuntu/Debian)
+sudo ufw allow from 192.168.1.0/24 to any port 4444 proto tcp
+sudo ufw deny 4444/tcp
+
+# iptables
+sudo iptables -A INPUT -p tcp --dport 4444 -s 192.168.1.0/24 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 4444 -j DROP
+
+# Make iptables persistent (Ubuntu/Debian)
+sudo apt-get install iptables-persistent
+sudo netfilter-persistent save
+```
+
+**Adjust subnet:** Replace `192.168.1.0/24` with your network (e.g., `10.0.0.0/8`, `172.16.0.0/12`)
+
+#### Layer 4: Authentication (Optional, Additional Layer)
+
+**Webhook secret for request validation:**
+
+```yaml
+webhook:
+  secret: "your-secure-random-string-here"
+```
+
+**How to use:**
+1. Generate secure random string: `openssl rand -base64 32`
+2. Add to config.yaml
+3. Configure Plex/Tautulli to send `X-Webhook-Secret: your-secret` header
+
+**Plex:** Does not support custom headers (use other layers)
+**Tautulli:** Add custom header in webhook configuration
+
+### Security Levels
+
+| Level | Configuration | Use Case |
+|-------|---------------|----------|
+| **High** (recommended) | `local_only: true` + Docker IP binding + Firewall | Home networks, general use |
+| **Medium** | `local_only: true` + webhook secret | Home networks without firewall access |
+| **Low** (not recommended) | `local_only: false` | Only behind authenticated reverse proxy |
+
+### Security Monitoring
+
+**Check logs for blocked attempts:**
+
+```bash
+# Docker
+docker logs audiochangerr | grep SECURITY
+
+# Standalone
+npm start 2>&1 | grep SECURITY
+```
+
+**Log examples:**
+```
+[info] [SECURITY] Network filtering: ENABLED
+[info] [SECURITY] Allowed networks: 127.0.0.0/8, 192.168.1.0/24, 10.0.0.0/8, ::1/128
+[warn] [SECURITY] Blocked webhook from 203.0.113.45 (not in allowed networks)
+[info] [SECURITY] Webhook authentication: ENABLED
+```
+
+Note: The allowed networks shown will match your configuration.
+
+### Public Deployment (Advanced)
+
+**If you must expose webhooks publicly** (generally NOT recommended):
+
+1. **Use reverse proxy with authentication:**
+   ```nginx
+   location /webhook {
+       auth_basic "Restricted";
+       auth_basic_user_file /etc/nginx/.htpasswd;
+       proxy_pass http://localhost:4444/webhook;
+   }
+   ```
+
+2. **Disable app-level filtering** (proxy handles it):
+   ```yaml
+   webhook:
+     host: "127.0.0.1"
+     local_only: false
+   ```
+
+3. **Enable HTTPS** (required for public exposure)
+
+4. **Set webhook secret** for additional validation
+
+### Network Testing
+
+**Verify local-only mode is working:**
+
+```bash
+# From local machine (should succeed)
+curl http://192.168.1.50:4444/webhook
+
+# From external IP (should fail with 403)
+curl http://your-public-ip:4444/webhook
+# Expected: {"error":"Forbidden: IP not in allowed networks"}
+```
+
+**Test with Docker:**
+```bash
+# Check container network binding
+docker port audiochangerr
+
+# Should show:
+# 4444/tcp -> 192.168.1.50:4444  (secure)
+# NOT:
+# 4444/tcp -> 0.0.0.0:4444  (exposed to all interfaces)
+```
 
 ## Performance
 

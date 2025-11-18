@@ -13,6 +13,12 @@ dry_run: true    # true = test mode, false = apply changes
 
 validation_timeout_seconds: 120  # Time to wait for session restart validation
 
+# Console Logging (required)
+# Configure what appears in console/terminal output
+console:
+  enabled: true              # Enable console output (true/false)
+  level: "info"              # Console log level: error, warn, info, debug
+
 # File Logging (optional)
 # Outputs logs to files with automatic rotation
 # Disabled by default - logs go to console only
@@ -31,7 +37,29 @@ webhook:
   port: 4444            # HTTP server port
   host: "0.0.0.0"       # Bind address (0.0.0.0 = all interfaces)
   path: "/webhook"      # Webhook endpoint path
-  secret: ""            # Optional: require X-Webhook-Secret header
+
+  # Security settings
+  local_only: true      # Block IPs not in allowed_networks (RECOMMENDED: true)
+                        # true = only allow IPs/networks in allowed_networks list (REQUIRED: must specify allowed_networks)
+                        # false = allow all IPs (NOT RECOMMENDED unless behind firewall/reverse proxy)
+
+  # REQUIRED when local_only: true - Specify allowed IP addresses and networks
+  # Supports both CIDR notation and individual IPs
+  allowed_networks:
+    - "127.0.0.0/8"         # Localhost
+    - "192.168.0.0/16"      # Private Class C (adjust to your home network, e.g., 192.168.1.0/24)
+    - "10.0.0.0/8"          # Private Class A (adjust if using different subnet)
+    - "172.16.0.0/12"       # Private Class B (adjust if using different subnet)
+    - "::1/128"             # IPv6 localhost
+  # Examples:
+  #   - "192.168.1.0/24"    # Specific home subnet
+  #   - "10.8.0.0/24"       # VPN network
+  #   - "172.20.0.5"        # Specific server IP
+  #   - "fe80::/10"         # IPv6 link-local
+
+  secret: ""            # Optional: require X-Webhook-Secret header (RECOMMENDED for extra security)
+
+  # Advanced settings
   initial_delay_ms: 0   # Optional: delay before first session lookup
   session_retry:        # Optional: retry if session not found immediately
     max_attempts: 3           # Number of lookup attempts

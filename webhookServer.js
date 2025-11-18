@@ -5,6 +5,77 @@ const logger = require('./logger');
 let server = null;
 let httpServer = null;
 
+/**
+ * Converts IPv4 address to 32-bit integer
+ */
+function ipv4ToInt(ip) {
+    const octets = ip.split('.').map(Number);
+    return ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+}
+
+/**
+ * Checks if an IP matches a CIDR range
+ */
+function matchesCIDR(ip, cidr) {
+    // Remove IPv6 prefix if present (e.g., ::ffff:192.168.1.1 -> 192.168.1.1)
+    const cleanIP = ip.replace(/^::ffff:/, '');
+
+    // Handle IPv6 CIDR (simple prefix matching for common cases)
+    if (cidr.includes(':')) {
+        const [network, prefix] = cidr.split('/');
+        const prefixLen = prefix ? parseInt(prefix) : 128;
+
+        // Simple IPv6 matching for loopback and link-local
+        if (network === '::1' && prefixLen === 128) {
+            return cleanIP === '::1';
+        }
+        if (network.startsWith('fe80:') && prefixLen === 10) {
+            return cleanIP.startsWith('fe80:');
+        }
+        return false;
+    }
+
+    // Handle IPv4 CIDR
+    const [network, prefix] = cidr.split('/');
+    const prefixLen = prefix ? parseInt(prefix) : 32;
+
+    // Check if IP is IPv4
+    const octets = cleanIP.split('.');
+    if (octets.length !== 4) {
+        return false;
+    }
+
+    const ipInt = ipv4ToInt(cleanIP);
+    const networkInt = ipv4ToInt(network);
+    const mask = (0xFFFFFFFF << (32 - prefixLen)) >>> 0;
+
+    return (ipInt & mask) === (networkInt & mask);
+}
+
+/**
+ * Checks if an IP address is allowed based on configured networks
+ */
+function isAllowedIP(ip, allowedNetworks) {
+    // Remove IPv6 prefix if present
+    const cleanIP = ip.replace(/^::ffff:/, '');
+
+    for (const network of allowedNetworks) {
+        // Check if network is CIDR or plain IP
+        if (network.includes('/')) {
+            if (matchesCIDR(ip, network)) {
+                return true;
+            }
+        } else {
+            // Plain IP match
+            if (cleanIP === network) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 function validateWebhookSecret(req, config) {
     if (!config.webhook.secret) {
         return true;  // No secret configured, skip validation
@@ -108,6 +179,24 @@ function start(config, onWebhook) {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
+    // IP filtering middleware - restrict to allowed networks only
+    app.use((req, res, next) => {
+        // Skip IP filtering for health check endpoint
+        if (req.path === '/health') {
+            return next();
+        }
+
+        // Check if local-only mode is enabled (default: true for security)
+        const localOnly = config.webhook.local_only !== false;
+
+        if (localOnly && !isAllowedIP(req.ip, config.webhook.allowed_networks)) {
+            logger.warn(`[SECURITY] Blocked webhook from ${req.ip} (not in allowed networks)`);
+            return res.status(403).json({ error: 'Forbidden: IP not in allowed networks' });
+        }
+
+        next();
+    });
+
     // Log all incoming requests for debugging
     app.use((req, res, next) => {
         logger.debug(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
@@ -190,10 +279,20 @@ function start(config, onWebhook) {
         logger.info(`Listening: ${host}:${port}${config.webhook.path}`);
         logger.info(`Health: http://${host}:${port}/health`);
         logger.info('Supported webhook sources: Plex, Tautulli');
-        if (config.webhook.secret) {
-            logger.info('Webhook authentication: ENABLED');
+
+        // Security status
+        const localOnly = config.webhook.local_only !== false;
+        if (localOnly) {
+            logger.info('[SECURITY] Network filtering: ENABLED');
+            logger.info(`[SECURITY] Allowed networks: ${config.webhook.allowed_networks.join(', ')}`);
         } else {
-            logger.warn('Webhook authentication: DISABLED (consider setting webhook.secret)');
+            logger.warn('[SECURITY] Network filtering: DISABLED (allowing all IPs - NOT RECOMMENDED)');
+        }
+
+        if (config.webhook.secret) {
+            logger.info('[SECURITY] Webhook authentication: ENABLED');
+        } else {
+            logger.warn('[SECURITY] Webhook authentication: DISABLED (consider setting webhook.secret)');
         }
     });
 

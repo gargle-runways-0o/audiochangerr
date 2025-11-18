@@ -27,10 +27,18 @@ npm start
 ```
 
 ### Docker
+
+**IMPORTANT**: The config.yaml file is NOT included in the Docker image. You must create it from config.yaml.example and provide it via volume mount.
+
 ```bash
+# 1. Create config.yaml from example
+cp config.yaml.example config.yaml
+nano config.yaml  # Edit with your settings
+
+# 2. Run container with config volume mount
 docker run -d \
   --name audiochangerr \
-  -v /path/to/config:/config \
+  -v /path/to/config.yaml:/config/config.yaml:ro \
   -v /path/to/logs:/logs \
   -p 4444:4444 \
   audiochangerr
@@ -58,7 +66,7 @@ docker run -d \
   -e LOG_DIRECTORY=/logs \
   -e LOG_MAX_SIZE=20m \
   -e LOG_MAX_FILES=14d \
-  -v /path/to/config:/config \
+  -v /path/to/config.yaml:/config/config.yaml:ro \
   -v /path/to/logs:/logs \
   -p 4444:4444 \
   audiochangerr
@@ -93,6 +101,7 @@ webhook:
   port: 4444
   host: "0.0.0.0"
   path: "/webhook"
+  local_only: true  # SECURITY: Block external IPs (default: true)
   secret: ""  # Optional: shared secret for authentication
   initial_delay_ms: 0  # Optional: delay before first session lookup
   session_retry:  # Optional: retry if session not found
@@ -104,7 +113,55 @@ webhook:
 - **Plex**: Direct integration, requires Plex Pass
 - **Tautulli**: No Plex Pass required, requires Tautulli installation
 
-**Security**: Set `webhook.secret` to require `X-Webhook-Secret` header. Recommended for internet-exposed webhooks.
+### Webhook Security
+
+**Multi-layered protection (recommended approach):**
+
+1. **Application-level IP filtering** (default: enabled)
+   ```yaml
+   webhook:
+     local_only: true  # Blocks IPs not in allowed_networks
+     # REQUIRED when local_only: true
+     allowed_networks:
+       - "127.0.0.0/8"       # Localhost
+       - "192.168.1.0/24"    # Your home network
+       - "10.0.0.5"          # Specific IP
+   ```
+   - **Must specify** `allowed_networks` when `local_only: true` (fails fast if missing)
+   - Supports CIDR notation and individual IPs
+   - Blocks IPs not in allowed list with 403 Forbidden
+   - Set `local_only: false` only if using reverse proxy with own authentication
+
+2. **Docker port binding** (local network only)
+   ```bash
+   # Localhost only (requires reverse proxy for Plex/Tautulli access)
+   docker run -p 127.0.0.1:4444:4444 ...
+
+   # Specific local IP (recommended for LAN access)
+   docker run -p 192.168.1.50:4444:4444 ...
+   ```
+
+3. **Firewall rules** (defense in depth)
+   ```bash
+   # UFW: Allow local network only
+   sudo ufw allow from 192.168.1.0/24 to any port 4444 proto tcp
+   sudo ufw deny 4444/tcp
+
+   # iptables
+   sudo iptables -A INPUT -p tcp --dport 4444 -s 192.168.1.0/24 -j ACCEPT
+   sudo iptables -A INPUT -p tcp --dport 4444 -j DROP
+   ```
+
+4. **Authentication** (optional, additional layer)
+   ```yaml
+   webhook:
+     secret: "your-secure-random-string"  # Requires X-Webhook-Secret header
+   ```
+
+**Security levels:**
+- **High** (recommended): `local_only: true` + firewall rules + Docker IP binding
+- **Medium**: `local_only: true` + webhook secret
+- **Low** (not recommended): `local_only: false` (only use behind authenticated reverse proxy)
 
 **Advanced Webhook Options**:
 - `initial_delay_ms`: Delay (in milliseconds) before first session lookup. Useful if webhooks consistently arrive before Plex creates the session. Omit or set to 0 for no delay.
@@ -114,6 +171,22 @@ webhook:
   - Omit entire `session_retry` section to disable retries (single attempt only).
 
 See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for detailed webhook configuration (Plex and Tautulli).
+
+### Console Logging
+
+Configure console/terminal output (required):
+
+```yaml
+console:
+  enabled: true
+  level: "info"
+```
+
+**Required fields**:
+- `enabled`: `true` to show console output, `false` to disable (no default - must specify)
+- `level`: Minimum log level for console: `error`, `warn`, `info`, `debug` (no default - must specify)
+
+**Fails fast if not specified**: Config will not load without explicit console configuration
 
 ### File Logging
 
@@ -220,9 +293,45 @@ Applies only when `mode: "webhook"`.
 **Type**: String | **Default**: `"/webhook"`
 **Description**: Webhook endpoint path. Health check at `/health`.
 
+#### `webhook.local_only`
+**Type**: Boolean | **Default**: `true`
+**Description**: IP filtering based on `allowed_networks`. When enabled, blocks requests from IPs not in the allowed list.
+- `true`: Allow only IPs/networks in `allowed_networks` (RECOMMENDED)
+- `false`: Allow all IPs (NOT RECOMMENDED - only use behind authenticated reverse proxy)
+**Blocked IPs**: Returns 403 Forbidden with logged warning
+
+#### `webhook.allowed_networks`
+**Type**: Array of Strings | **Required**: When `local_only: true`
+**Description**: List of allowed IP addresses and CIDR ranges. **Required** when `local_only: true` - config will fail to load if not specified.
+**Format**: CIDR notation (`192.168.1.0/24`) or individual IPs (`10.0.0.5`)
+**Validation**: Must be non-empty array with at least one valid IP/CIDR entry
+
+**Example** (typical home network):
+```yaml
+allowed_networks:
+  - "127.0.0.0/8"      # Localhost
+  - "192.168.1.0/24"   # Home network
+  - "10.0.0.0/8"       # Private Class A (if using)
+  - "::1/128"          # IPv6 localhost
+```
+
+**Example** (restrictive, specific subnet only):
+```yaml
+allowed_networks:
+  - "192.168.1.0/24"   # Only this subnet
+```
+
+**Example** (multiple networks):
+```yaml
+allowed_networks:
+  - "192.168.1.0/24"   # Home network
+  - "10.8.0.0/24"      # VPN network
+  - "172.20.0.5"       # Specific server IP
+```
+
 #### `webhook.secret`
 **Type**: String | **Optional**: Yes
-**Description**: Shared secret for authentication. Requires `X-Webhook-Secret` header. Recommended for internet-exposed webhooks.
+**Description**: Shared secret for authentication. Requires `X-Webhook-Secret` header. Provides additional security layer beyond IP filtering.
 
 #### `webhook.initial_delay_ms`
 **Type**: Integer | **Optional**: Yes | **Default**: `0`
@@ -252,6 +361,19 @@ Applies only when `mode: "webhook"`.
 **Range**: 5-30s
 
 ### Logging Settings
+
+#### `console`
+**Type**: Object | **Required**: Yes
+**Description**: Console logging configuration. Controls terminal/stdout output. **Required** - config fails to load if not specified.
+
+#### `console.enabled`
+**Type**: Boolean | **Required**: Yes
+**Description**: Enable console output. `false` disables all console logging (useful when only file logging desired). Must be explicitly set to `true` or `false`.
+
+#### `console.level`
+**Type**: String | **Required**: Yes
+**Options**: `error`, `warn`, `info`, `debug`
+**Description**: Minimum log level for console output. Must be explicitly specified (no defaults).
 
 #### `logging`
 **Type**: Object | **Optional**: Yes

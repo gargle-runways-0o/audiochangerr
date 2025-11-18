@@ -119,6 +119,33 @@ function loadConfig() {
         // Optional webhook secret
         config.webhook.secret = config.webhook.secret || '';
 
+        // Optional local_only mode (defaults to true for security)
+        if (config.webhook.local_only === undefined) {
+            config.webhook.local_only = true;
+        }
+        if (typeof config.webhook.local_only !== 'boolean') {
+            throw new Error('webhook.local_only must be boolean');
+        }
+
+        // allowed_networks required when local_only is true
+        if (config.webhook.local_only) {
+            if (!config.webhook.allowed_networks) {
+                throw new Error('webhook.allowed_networks required when local_only is true. Specify allowed IPs/CIDR ranges.');
+            }
+            if (!Array.isArray(config.webhook.allowed_networks)) {
+                throw new Error('webhook.allowed_networks must be an array');
+            }
+            if (config.webhook.allowed_networks.length === 0) {
+                throw new Error('webhook.allowed_networks must contain at least one entry');
+            }
+            // Validate each entry is a string
+            for (const network of config.webhook.allowed_networks) {
+                if (typeof network !== 'string' || network.trim() === '') {
+                    throw new Error('webhook.allowed_networks entries must be non-empty strings (IP or CIDR)');
+                }
+            }
+        }
+
         // Optional initial delay before session lookup
         if (config.webhook.initial_delay_ms !== undefined) {
             if (typeof config.webhook.initial_delay_ms !== 'number' || config.webhook.initial_delay_ms < 0) {
@@ -148,7 +175,32 @@ function loadConfig() {
         throw new Error(`Unsupported config version: ${config.config_version}. This version supports: 1`);
     }
 
-    // Optional logging configuration
+    // Console logging configuration (required)
+    if (!config.console) {
+        throw new Error('console configuration required. Specify console.enabled and console.level.');
+    }
+    if (typeof config.console !== 'object') {
+        throw new Error('console must be an object');
+    }
+
+    // Validate console.enabled (required)
+    if (config.console.enabled === undefined) {
+        throw new Error('console.enabled required (true or false)');
+    }
+    if (typeof config.console.enabled !== 'boolean') {
+        throw new Error('console.enabled must be boolean');
+    }
+
+    // Validate console.level (required)
+    if (!config.console.level) {
+        throw new Error('console.level required (error, warn, info, or debug)');
+    }
+    const validLevels = ['error', 'warn', 'info', 'debug'];
+    if (!validLevels.includes(config.console.level)) {
+        throw new Error(`console.level must be one of: ${validLevels.join(', ')}`);
+    }
+
+    // Optional file logging configuration
     if (config.logging !== undefined) {
         if (typeof config.logging !== 'object') {
             throw new Error('logging must be an object');

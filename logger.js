@@ -9,11 +9,16 @@ const logFormat = winston.format.combine(
     winston.format.printf(({ timestamp, level, message }) => `${timestamp} [${level.toUpperCase()}]: ${message}`)
 );
 
+// Create console transport with default settings
+const defaultConsoleTransport = new winston.transports.Console({
+    level: process.env.LOG_LEVEL || 'info',
+});
+
 // Create logger with console transport by default
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
     format: logFormat,
-    transports: [new winston.transports.Console()],
+    transports: [defaultConsoleTransport],
 });
 
 /**
@@ -66,6 +71,34 @@ function configureFileLogging(loggingConfig) {
 }
 
 /**
+ * Configure console logging
+ * @param {Object} consoleConfig - Console configuration from config.yaml (required)
+ */
+function configureConsoleLogging(consoleConfig) {
+    if (!consoleConfig) {
+        throw new Error('Console configuration required');
+    }
+
+    const consoleLevel = consoleConfig.level;
+    const consoleEnabled = consoleConfig.enabled;
+
+    // Remove existing console transport
+    logger.remove(defaultConsoleTransport);
+
+    // Add new console transport if enabled
+    if (consoleEnabled) {
+        const newConsoleTransport = new winston.transports.Console({
+            level: consoleLevel,
+            format: logFormat,
+        });
+        logger.add(newConsoleTransport);
+        logger.info(`Console logging: level=${consoleLevel}`);
+    } else {
+        logger.warn('Console logging disabled');
+    }
+}
+
+/**
  * Configure file logging from environment variables only
  * This is called automatically on module load if LOG_TO_FILE is set
  */
@@ -86,3 +119,4 @@ configureFromEnvironment();
 
 module.exports = logger;
 module.exports.configureFileLogging = configureFileLogging;
+module.exports.configureConsoleLogging = configureConsoleLogging;

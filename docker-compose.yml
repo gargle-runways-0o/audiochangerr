@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  audiochangerr:
+    image: audiochangerr:latest
+    container_name: audiochangerr
+    restart: unless-stopped
+
+    # SECURITY: Choose ONE port binding option below
+    # Option 1: Localhost only (most secure, requires reverse proxy for Plex/Tautulli)
+    # ports:
+    #   - "127.0.0.1:4444:4444"
+
+    # Option 2: Specific local IP (RECOMMENDED for LAN access)
+    # Replace 192.168.1.50 with your server's local IP
+    ports:
+      - "192.168.1.50:4444:4444"
+
+    # Option 3: All interfaces (relies on app-level IP filtering)
+    # Only use if you can't determine your local IP
+    # ports:
+    #   - "4444:4444"
+
+    volumes:
+      # REQUIRED: Config file (NOT included in Docker image - must be provided via volume mount)
+      # Create config.yaml from config.yaml.example before starting container
+      - ./config.yaml:/config/config.yaml:ro
+
+      # Optional: Log file directory (if logging.enabled: true in config)
+      - ./logs:/logs
+
+    environment:
+      # Optional: Override log level (error, warn, info, debug)
+      - LOG_LEVEL=info
+
+      # Optional: Enable file logging via environment variable
+      # - LOG_TO_FILE=true
+      # - LOG_DIRECTORY=/logs
+      # - LOG_MAX_SIZE=20m
+      # - LOG_MAX_FILES=14d
+
+    # Optional: Network mode
+    # network_mode: bridge  # Default
+
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.5'
+    #       memory: 256M
+    #     reservations:
+    #       cpus: '0.1'
+    #       memory: 64M
+
+    # Optional: Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4444/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Optional: Networks for advanced setups
+# networks:
+#   default:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 172.20.0.0/16
