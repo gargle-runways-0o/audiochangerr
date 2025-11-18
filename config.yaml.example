@@ -13,6 +13,13 @@ dry_run: true    # true = test mode, false = apply changes
 
 validation_timeout_seconds: 120  # Time to wait for session restart validation
 
+# Console Logging (optional)
+# Configure what appears in console/terminal output
+# If not specified, defaults to LOG_LEVEL environment variable or "info"
+# console:
+#   enabled: true              # Enable console output (default: true)
+#   level: "info"              # Console log level: error, warn, info, debug
+
 # File Logging (optional)
 # Outputs logs to files with automatic rotation
 # Disabled by default - logs go to console only

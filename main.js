@@ -82,6 +82,11 @@ async function main() {
         config = loadConfig();
         logger.info('Config loaded');
 
+        // Configure console logging if specified in config
+        if (config.console) {
+            logger.configureConsoleLogging(config.console);
+        }
+
         // Configure file logging if enabled in config
         if (config.logging) {
             logger.configureFileLogging(config.logging);

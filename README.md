@@ -164,6 +164,22 @@ webhook:
 
 See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for detailed webhook configuration (Plex and Tautulli).
 
+### Console Logging
+
+Configure console/terminal output:
+
+```yaml
+console:
+  enabled: true
+  level: "info"
+```
+
+**Options**:
+- `enabled`: `true` to show console output, `false` to disable (default: `true`)
+- `level`: Minimum log level for console: `error`, `warn`, `info`, `debug` (default: `info`)
+
+**If not specified**: Defaults to `LOG_LEVEL` environment variable or `info`
+
 ### File Logging
 
 Enable persistent logging to files with automatic rotation:
@@ -337,6 +353,19 @@ allowed_networks:
 **Range**: 5-30s
 
 ### Logging Settings
+
+#### `console`
+**Type**: Object | **Optional**: Yes
+**Description**: Console logging configuration. Controls terminal/stdout output.
+
+#### `console.enabled`
+**Type**: Boolean | **Optional**: Yes | **Default**: `true`
+**Description**: Enable console output. `false` disables all console logging (useful when only file logging desired).
+
+#### `console.level`
+**Type**: String | **Optional**: Yes | **Default**: `info`
+**Options**: `error`, `warn`, `info`, `debug`
+**Description**: Minimum log level for console output. If not specified, defaults to `LOG_LEVEL` environment variable or `info`.
 
 #### `logging`
 **Type**: Object | **Optional**: Yes

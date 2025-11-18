@@ -175,7 +175,27 @@ function loadConfig() {
         throw new Error(`Unsupported config version: ${config.config_version}. This version supports: 1`);
     }
 
-    // Optional logging configuration
+    // Optional console logging configuration
+    if (config.console !== undefined) {
+        if (typeof config.console !== 'object') {
+            throw new Error('console must be an object');
+        }
+
+        // Validate console.enabled
+        if (config.console.enabled !== undefined && typeof config.console.enabled !== 'boolean') {
+            throw new Error('console.enabled must be boolean');
+        }
+
+        // Validate console.level
+        if (config.console.level !== undefined) {
+            const validLevels = ['error', 'warn', 'info', 'debug'];
+            if (!validLevels.includes(config.console.level)) {
+                throw new Error(`console.level must be one of: ${validLevels.join(', ')}`);
+            }
+        }
+    }
+
+    // Optional file logging configuration
     if (config.logging !== undefined) {
         if (typeof config.logging !== 'object') {
             throw new Error('logging must be an object');
