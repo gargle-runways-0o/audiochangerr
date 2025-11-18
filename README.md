@@ -46,96 +46,23 @@ docker run -d \
 
 ## Configuration
 
-**Quick start:**
 ```bash
 cp config.yaml.example config.yaml
 nano config.yaml
 ```
 
-**Required settings:**
-- `plex_server_url`: Your Plex server URL (e.g., `http://192.168.1.100:32400`)
-- `plex_token`: Get from Plex Web → play media → Get Info → View XML → copy `X-Plex-Token` from URL
-- `owner_username`: Your Plex username (case-sensitive)
-- `console.enabled` and `console.level`: Console output settings
-- `dry_run`: Set `false` to apply changes (defaults to `true` for safety)
+**Minimum required:**
+- `plex_server_url`: `http://192.168.1.100:32400`
+- `plex_token`: Get from Plex Web → play media → Get Info → View XML → copy from URL
+- `owner_username`: Your Plex username
+- `console.enabled` and `console.level`: Required
+- `mode`: `"polling"` or `"webhook"`
+- `dry_run`: `true` to test, `false` to apply changes
 
-### Modes
-
-**Polling** (default):
-```yaml
-mode: "polling"
-check_interval: 10  # seconds
-```
-
-**Webhook** (requires Plex Pass OR Tautulli):
-```yaml
-mode: "webhook"
-webhook:
-  port: 4444
-  host: "0.0.0.0"
-  path: "/webhook"
-  local_only: true  # SECURITY: Block external IPs (default: true)
-  secret: ""  # Optional: shared secret for authentication
-  initial_delay_ms: 0  # Optional: delay before first session lookup
-  session_retry:  # Optional: retry if session not found
-    max_attempts: 3
-    initial_delay_ms: 500
-```
-
-**Webhook Sources**:
-- **Plex**: Direct integration, requires Plex Pass
-- **Tautulli**: No Plex Pass required, requires Tautulli installation
-
-**See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for:**
-- Detailed webhook configuration
-- Security setup (IP filtering, firewall, authentication)
-- Plex and Tautulli setup instructions
-- Troubleshooting
-
-**Advanced Webhook Options**:
-- `initial_delay_ms`: Delay (in milliseconds) before first session lookup. Useful if webhooks consistently arrive before Plex creates the session. Omit or set to 0 for no delay.
-- `session_retry`: Retry configuration if session not found on first attempt. Webhooks sometimes arrive before Plex has fully created the session in its API.
-  - `max_attempts`: Total number of lookup attempts (including first attempt). Recommended: 1-5.
-  - `initial_delay_ms`: Base delay for exponential backoff between retries. Delays are: delay × 2^0, delay × 2^1, delay × 2^2, etc. Example: 500ms → 500ms, 1000ms, 2000ms, 4000ms.
-  - Omit entire `session_retry` section to disable retries (single attempt only).
-
-### Logging
-
-**Console output** (required):
-```yaml
-console:
-  enabled: true   # true/false
-  level: "info"   # error, warn, info, debug
-```
-
-**File logging** (optional):
-```yaml
-logging:
-  enabled: true
-  directory: "/logs"
-  max_size: "20m"    # Rotation: 20m, 100k, 1g
-  max_files: "14d"   # Retention: 14d, 30d, or file count
-  level: "info"
-```
-
-Files: `audiochangerr-YYYY-MM-DD.log`. Directory created automatically.
-
-### Audio Selection
-
-Rules process top to bottom. First match wins.
-
-```yaml
-audio_selector:
-  - codec: "ac3"          # aac, ac3, eac3, dts, dts-hd, truehd, flac, mp3, opus, vorbis, pcm
-    channels: 6           # minimum 1-8 (6 matches 6ch or 8ch)
-    language: "original"  # "original" or ISO code (eng, jpn, spa)
-    keywords_exclude: ["Commentary"]
-  - codec: "aac"
-    channels: 2
-    language: "original"
-```
-
-**Full reference:** See [CONFIGURATION.md](CONFIGURATION.md) for complete field documentation and [config.yaml.example](config.yaml.example) for examples.
+**Documentation:**
+- **[CONFIGURATION.md](CONFIGURATION.md)** - Complete field reference
+- **[WEBHOOK-SETUP.md](WEBHOOK-SETUP.md)** - Webhook setup (Plex/Tautulli)
+- **[config.yaml.example](config.yaml.example)** - Working examples
 
 ## Usage
 
