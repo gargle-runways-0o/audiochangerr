@@ -28,11 +28,11 @@ async function fetchSessions() {
                 return response.data.MediaContainer.Metadata || [];
             } catch (error) {
                 if (error.response) {
-                    logger.error(`Sessions: ${error.response.status} ${error.response.statusText}`);
+                    logger.error(`Sessions: ${error.response.status} - check Plex server URL and token`);
                     logger.debug(error.stack);
                     throw new Error(`Plex API: ${error.response.status} ${error.response.statusText}`);
                 } else {
-                    logger.error(`Sessions: ${error.message}`);
+                    logger.error(`Sessions: ${error.message} - check Plex server connectivity`);
                     logger.debug(error.stack);
                     throw error;
                 }
@@ -56,11 +56,11 @@ async function fetchMetadata(ratingKey) {
                 return metadata;
             } catch (error) {
                 if (error.response) {
-                    logger.error(`Metadata ${ratingKey}: ${error.response.status} ${error.response.statusText}`);
+                    logger.error(`Metadata ${ratingKey}: ${error.response.status} - check media exists in Plex`);
                     logger.debug(error.stack);
                     throw new Error(`Plex metadata: ${error.response.status}`);
                 } else {
-                    logger.error(`Metadata ${ratingKey}: ${error.message}`);
+                    logger.error(`Metadata ${ratingKey}: ${error.message} - check Plex connectivity`);
                     logger.debug(error.stack);
                     throw error;
                 }
@@ -87,7 +87,7 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
         const response = await plexApi.put(url, null, { params, headers });
         logger.debug(`Set audio: part=${partId} stream=${streamId} token=${tokenStatus}`);
     } catch (error) {
-        logger.error(`Set audio: ${error.message}`);
+        logger.error(`Set audio: ${error.message} - check Plex permissions and stream exists`);
         throw error;
     }
 }
@@ -153,7 +153,7 @@ async function fetchManagedUserTokens() {
         );
 
         if (!server || !server.$.clientIdentifier) {
-            logger.error('No clientIdentifier');
+            logger.error('No clientIdentifier - check Plex.tv access and server registration');
             return {};
         }
         const clientIdentifier = server.$.clientIdentifier;
@@ -167,7 +167,7 @@ async function fetchManagedUserTokens() {
     } catch (error) {
         if (error.response) {
             const status = error.response.status;
-            logger.error(`Managed tokens: ${status} ${error.response.statusText}`);
+            logger.error(`Managed tokens: ${status} - check Plex.tv token has admin access`);
 
             if (status === 404) {
                 logger.info('No managed users');
@@ -177,7 +177,7 @@ async function fetchManagedUserTokens() {
             logger.debug(error.stack);
             throw new Error(`Managed tokens: ${status}`);
         } else {
-            logger.error(`Managed tokens: ${error.message}`);
+            logger.error(`Managed tokens: ${error.message} - check Plex.tv connectivity`);
             logger.debug(error.stack);
             throw error;
         }

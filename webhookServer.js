@@ -83,7 +83,7 @@ function validateWebhookSecret(req, config) {
 
     const providedSecret = req.headers['x-webhook-secret'];
     if (!providedSecret || providedSecret !== config.webhook.secret) {
-        logger.warn(`Invalid secret: ${req.ip}`);
+        logger.warn(`Invalid secret from ${req.ip} - check webhook secret header matches config`);
         return false;
     }
 
@@ -180,7 +180,7 @@ function start(config, onWebhook) {
         const localOnly = config.webhook.local_only !== false;
 
         if (localOnly && !isAllowedIP(req.ip, config.webhook.allowed_networks)) {
-            logger.warn(`Blocked: ${req.ip}`);
+            logger.warn(`Blocked ${req.ip} - add to webhook.allowed_networks or set local_only=false`);
             return res.status(403).json({ error: 'Forbidden: IP not in allowed networks' });
         }
 
@@ -210,7 +210,7 @@ function start(config, onWebhook) {
                 const payloadJson = req.body.payload;
 
                 if (!payloadJson) {
-                    logger.error(`Missing payload: ${Object.keys(req.body).join(', ')}`);
+                    logger.error(`Missing payload field - got keys: ${Object.keys(req.body).join(', ')} - check webhook format`);
                     return res.status(400).json({ error: 'Missing payload field or unrecognized format' });
                 }
 
@@ -248,19 +248,19 @@ function start(config, onWebhook) {
         if (localOnly) {
             logger.info(`Networks: ${config.webhook.allowed_networks.join(', ')}`);
         } else {
-            logger.warn('Networks: ALL (not recommended)');
+            logger.warn('Networks: ALL - set local_only=true and configure allowed_networks');
         }
 
         if (config.webhook.secret) {
             logger.info('Auth: enabled');
         } else {
-            logger.warn('Auth: disabled');
+            logger.warn('Auth: disabled - set webhook.secret for security');
         }
     });
 
     httpServer.on('error', (error) => {
         if (error.code === 'EADDRINUSE') {
-            logger.error(`Port in use: ${port}`);
+            logger.error(`Port ${port} in use - change webhook.port or stop conflicting service`);
         } else {
             logger.error(`Server: ${error.message}`);
         }

@@ -44,7 +44,7 @@ async function findSessionWithRetry(ratingKey, playerUuid, config) {
     }
 
     if (maxRetries > 1) {
-        logger.warn(`No session: ${ratingKey} (${maxRetries} attempts, webhook early?)`);
+        logger.warn(`No session: ${ratingKey} (${maxRetries} attempts) - webhook too early, increase initial_delay_ms/max_attempts`);
     } else {
         logger.debug(`No session: ${ratingKey}`);
     }
@@ -64,7 +64,7 @@ async function processWebhook(payload, config) {
         const userTitle = payload.Account?.title;
 
         if (!ratingKey || !playerUuid) {
-            logger.warn(`Missing: ratingKey=${ratingKey} playerUuid=${playerUuid}`);
+            logger.warn(`Malformed webhook: missing ratingKey=${ratingKey} playerUuid=${playerUuid} - check Plex webhook config`);
             return;
         }
 
@@ -82,7 +82,7 @@ async function processWebhook(payload, config) {
                     return;
                 } else if (validationResult === false) {
                     audioFixer.clearProcessingInfo(ratingKey, playerUuid);
-                    logger.warn(`Validation failed: ${ratingKey}`);
+                    logger.warn(`Validation failed: ${ratingKey} - still transcoding or wrong stream selected`);
                     return;
                 }
                 logger.debug(`Same session, waiting`);

@@ -47,7 +47,7 @@ function startPollingMode() {
 
 function startWebhookMode() {
     if (config.webhook.enabled === false) {
-        logger.error('Webhook disabled in config');
+        logger.error('Webhook disabled - set webhook.enabled=true or use mode=polling');
         throw new Error('webhook.enabled must be true for webhook mode');
     }
 

@@ -24,7 +24,7 @@ function validateSessionRestart(session, processingInfo) {
     logger.info(`Restarted: ${ratingKey}`);
 
     if (session.TranscodeSession) {
-        logger.warn('Still transcoding (incompatible codec/client)');
+        logger.warn('Still transcoding - codec incompatible with client, check audio_selector rules');
         return false;
     }
 
@@ -62,7 +62,7 @@ async function resolveUserToken(session, config) {
         return managedUserTokens[session.User.id];
     }
 
-    logger.warn(`Not owner/managed: ${sessionUsername} (${session.User.id})`);
+    logger.warn(`User ${sessionUsername} not owner/managed - add as managed user in Plex or switch to owner`);
     return null;
 }
 
@@ -106,7 +106,7 @@ async function processTranscodingSession(session, config) {
         const currentStream = streams.find(s => s.streamType === 2 && s.selected);
 
         if (!currentStream) {
-            logger.warn('No audio stream');
+            logger.warn('No audio stream selected - media may be corrupted or unsupported');
             return false;
         }
 
@@ -117,7 +117,7 @@ async function processTranscodingSession(session, config) {
         );
 
         if (!bestStream) {
-            logger.warn('No better stream');
+            logger.warn('No better stream - check audio_selector rules match available streams');
             return false;
         }
 
