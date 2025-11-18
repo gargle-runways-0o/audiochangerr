@@ -93,7 +93,7 @@ function loadConfig() {
         throw new Error(`terminate_stream must be boolean (got: ${config.terminate_stream})`);
     }
     if (!config.terminate_stream) {
-        logger.info('Terminate: disabled - users must restart playback manually');
+        logger.info('Terminate: disabled');
     }
 
     // Check interval required for polling mode
