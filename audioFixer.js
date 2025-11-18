@@ -68,7 +68,7 @@ async function resolveUserToken(session, config) {
 
 async function terminateStream(session, reason, config) {
     if (!config.terminate_stream) {
-        logger.info('Stream termination disabled');
+        logger.debug('Skip termination');
         return false;
     }
 
