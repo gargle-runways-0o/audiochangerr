@@ -1,0 +1,294 @@
+# Configuration Reference
+
+Complete reference for all `config.yaml` options.
+
+**Quick start:** See [README.md](README.md#configuration) for minimal setup. See [config.yaml.example](config.yaml.example) for examples.
+
+## Core Settings
+
+### `plex_server_url`
+**Type**: String | **Required**: Yes
+**Description**: Plex server URL for API communications.
+**Example**: `http://192.168.1.100:32400`
+
+### `plex_token`
+**Type**: String | **Required**: Yes
+**Description**: Plex API authentication token. Get from media item → Get Info → View XML → copy `X-Plex-Token` from URL.
+**Security**: Keep secure. Grants full server access.
+
+### `owner_username`
+**Type**: String | **Required**: Yes
+**Description**: Plex server owner username (case-sensitive). Processes sessions for owner and managed users.
+
+### `mode`
+**Type**: String | **Required**: Yes | **Default**: `polling`
+**Options**: `webhook`, `polling`
+**Description**: Session detection mode.
+- `webhook`: Instant detection via HTTP webhooks. Requires Plex Pass or Tautulli.
+- `polling`: Periodic checks. 0-10s delay based on `check_interval`.
+
+### `dry_run`
+**Type**: Boolean | **Required**: Yes | **Default**: `true`
+**Description**: `true` = log only, `false` = apply changes. Test with `true` before production.
+
+### `validation_timeout_seconds`
+**Type**: Integer | **Required**: Yes | **Default**: `120`
+**Description**: Max wait time for session restart after track switch. Timeout clears processing cache, allows retry.
+**Range**: 60-180s
+
+## Webhook Settings
+
+Applies only when `mode: "webhook"`.
+
+### `webhook.enabled`
+**Type**: Boolean | **Default**: `true`
+**Description**: Enable webhook server. Must be `true` for webhook mode.
+
+### `webhook.port`
+**Type**: Integer | **Default**: `4444`
+**Description**: Webhook server port. Must be accessible from Plex/Tautulli.
+
+### `webhook.host`
+**Type**: String | **Default**: `"0.0.0.0"`
+**Description**: Network interface to bind.
+- `0.0.0.0`: All interfaces (Docker)
+- `127.0.0.1`: Localhost only
+- Specific IP: Single interface
+
+### `webhook.path`
+**Type**: String | **Default**: `"/webhook"`
+**Description**: Webhook endpoint path. Health check at `/health`.
+
+### `webhook.local_only`
+**Type**: Boolean | **Default**: `true`
+**Description**: IP filtering based on `allowed_networks`. When enabled, blocks requests from IPs not in the allowed list.
+- `true`: Allow only IPs/networks in `allowed_networks` (RECOMMENDED)
+- `false`: Allow all IPs (NOT RECOMMENDED - only use behind authenticated reverse proxy)
+
+**Blocked IPs**: Returns 403 Forbidden with logged warning
+
+### `webhook.allowed_networks`
+**Type**: Array of Strings | **Required**: When `local_only: true`
+**Description**: List of allowed IP addresses and CIDR ranges. **Required** when `local_only: true` - config will fail to load if not specified.
+**Format**: CIDR notation (`192.168.1.0/24`) or individual IPs (`10.0.0.5`)
+**Validation**: Must be non-empty array with at least one valid IP/CIDR entry
+
+**Example** (typical home network):
+```yaml
+allowed_networks:
+  - "127.0.0.0/8"      # Localhost
+  - "192.168.1.0/24"   # Home network
+  - "10.0.0.0/8"       # Private Class A (if using)
+  - "::1/128"          # IPv6 localhost
+```
+
+**Example** (restrictive, specific subnet only):
+```yaml
+allowed_networks:
+  - "192.168.1.0/24"   # Only this subnet
+```
+
+**Example** (multiple networks):
+```yaml
+allowed_networks:
+  - "192.168.1.0/24"   # Home network
+  - "10.8.0.0/24"      # VPN network
+  - "172.20.0.5"       # Specific server IP
+```
+
+### `webhook.secret`
+**Type**: String | **Optional**: Yes
+**Description**: Shared secret for authentication. Requires `X-Webhook-Secret` header. Provides additional security layer beyond IP filtering.
+**Note**: Plex does not support custom headers. Only works with Tautulli.
+
+### `webhook.initial_delay_ms`
+**Type**: Integer | **Optional**: Yes | **Default**: `0`
+**Description**: Delay before first session lookup. Use if webhooks arrive before Plex creates session.
+**Range**: 0-2000ms
+
+### `webhook.session_retry`
+**Type**: Object | **Optional**: Yes
+**Description**: Retry config for session lookups. Use if webhooks arrive before session exists. Omit to disable retries.
+
+### `webhook.session_retry.max_attempts`
+**Type**: Integer | **Optional**: Yes | **Default**: 1
+**Description**: Total lookup attempts (includes first). Exponential backoff.
+**Range**: 1-5
+
+### `webhook.session_retry.initial_delay_ms`
+**Type**: Integer | **Optional**: Yes
+**Description**: Base delay for exponential backoff. Pattern: `delay × 2^n`.
+**Example**: 500ms → 500ms, 1000ms, 2000ms, 4000ms
+**Range**: 100-1000ms
+
+## Polling Settings
+
+### `check_interval`
+**Type**: Integer | **Required**: When `mode: "polling"` | **Default**: `10`
+**Description**: Seconds between session checks. Lower = faster detection + more API calls. Higher = slower detection + fewer API calls.
+**Range**: 5-30s
+
+## Logging Settings
+
+### `console`
+**Type**: Object | **Required**: Yes
+**Description**: Console logging configuration. Controls terminal/stdout output. **Required** - config fails to load if not specified.
+
+### `console.enabled`
+**Type**: Boolean | **Required**: Yes
+**Description**: Enable console output. `false` disables all console logging (useful when only file logging desired). Must be explicitly set to `true` or `false`.
+
+### `console.level`
+**Type**: String | **Required**: Yes
+**Options**: `error`, `warn`, `info`, `debug`
+**Description**: Minimum log level for console output. Must be explicitly specified (no defaults).
+
+### `logging`
+**Type**: Object | **Optional**: Yes
+**Description**: File logging configuration with automatic rotation. Omit entire section to disable file logging (console only).
+
+### `logging.enabled`
+**Type**: Boolean | **Required**: Yes (if `logging` specified) | **Default**: `false`
+**Description**: Enable file logging. `true` = logs to both console and files, `false` = console only.
+
+### `logging.directory`
+**Type**: String | **Optional**: Yes | **Default**: `/logs`
+**Description**: Directory for log files. Created automatically if missing. Use absolute path.
+**Example**: `/var/log/audiochangerr`, `./logs`, `/logs`
+
+### `logging.max_size`
+**Type**: String | **Optional**: Yes | **Default**: `20m`
+**Description**: Maximum file size before rotation.
+**Format**: Number + unit (`k` = KB, `m` = MB, `g` = GB)
+**Examples**: `20m` (20 MB), `100k` (100 KB), `1g` (1 GB)
+
+### `logging.max_files`
+**Type**: String | **Optional**: Yes | **Default**: `14d`
+**Description**: Log retention policy.
+**Format**: Days (`Xd`) or file count (number)
+**Examples**: `14d` (keep 14 days), `30d` (30 days), `10` (keep 10 files)
+
+### `logging.level`
+**Type**: String | **Optional**: Yes | **Default**: `info`
+**Options**: `error`, `warn`, `info`, `debug`
+**Description**: Minimum log level for file output.
+
+**Log File Format**: `audiochangerr-YYYY-MM-DD.log` (daily rotation)
+
+## Audio Selection Rules
+
+### `audio_selector`
+**Type**: Array of Objects | **Required**: Yes
+**Description**: Track selection rules. First match wins. No matches = no action.
+
+**Processing**:
+1. Evaluate rules top to bottom
+2. First matching track wins
+3. Select track and restart session
+
+**Rule Fields**:
+
+#### `codec`
+**Type**: String | **Required**: Yes
+**Options**: `aac`, `ac3`, `eac3`, `dts`, `dts-hd`, `truehd`, `flac`, `mp3`, `opus`, `vorbis`, `pcm`
+**Description**: Audio codec to match.
+
+#### `channels`
+**Type**: Integer | **Required**: Yes
+**Options**: 1-8 (2=stereo, 6=5.1, 8=7.1)
+**Description**: Minimum channel count (matches streams with >= channels).
+
+#### `language`
+**Type**: String | **Required**: Yes
+**Options**: `"original"` or ISO 639-2 code
+**Description**: Language preference.
+- `"original"`: Default media language
+- ISO code: Specific language (`eng`, `jpn`, `spa`, `fra`)
+
+#### `keywords_include`
+**Type**: Array | **Optional**: Yes | **Default**: `[]`
+**Description**: Track title must contain any keyword (case-insensitive). Empty = no filtering.
+**Example**: `["DTS-HD", "TrueHD"]`
+
+#### `keywords_exclude`
+**Type**: Array | **Optional**: Yes | **Default**: `[]`
+**Description**: Track title must NOT contain any keyword (case-insensitive). Empty = no exclusions.
+**Example**: `["Commentary", "Descriptive"]`
+
+**Example**:
+```yaml
+audio_selector:
+  - codec: "ac3"
+    channels: 6
+    language: "original"
+    keywords_include: []
+    keywords_exclude: ["Commentary"]
+```
+
+## Advanced Settings
+
+### `config_version`
+**Type**: Integer | **Optional**: Yes | **Current**: `1`
+**Description**: Config format version for future compatibility.
+
+## Examples
+
+### Multiple Languages
+```yaml
+audio_selector:
+  - codec: "ac3"
+    language: "eng"
+    channels: 6
+  - codec: "ac3"
+    language: "original"
+    channels: 6
+```
+
+### DTS Preference
+```yaml
+audio_selector:
+  - codec: "dts"
+    channels: 6
+    keywords_include: ["DTS-HD"]
+  - codec: "dts"
+    channels: 6
+```
+
+### Complete Webhook Config
+```yaml
+mode: "webhook"
+
+webhook:
+  port: 4444
+  host: "0.0.0.0"
+  path: "/webhook"
+  local_only: true
+  allowed_networks:
+    - "127.0.0.0/8"
+    - "192.168.1.0/24"
+  secret: "your-secure-secret"
+  initial_delay_ms: 0
+  session_retry:
+    max_attempts: 3
+    initial_delay_ms: 500
+```
+
+### Complete Polling Config
+```yaml
+mode: "polling"
+check_interval: 10
+```
+
+### Complete Logging Config
+```yaml
+console:
+  enabled: true
+  level: "info"
+
+logging:
+  enabled: true
+  directory: "/logs"
+  max_size: "20m"
+  max_files: "14d"
+  level: "info"
+```

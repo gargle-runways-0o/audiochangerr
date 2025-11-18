@@ -135,7 +135,7 @@ audio_selector:
     language: "original"
 ```
 
-See config.yaml.example for detailed options and examples.
+**Full reference:** See [CONFIGURATION.md](CONFIGURATION.md) for complete field documentation and [config.yaml.example](config.yaml.example) for examples.
 
 ## Usage
 
