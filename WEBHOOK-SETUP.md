@@ -306,50 +306,61 @@ Audiochangerr implements defense-in-depth security with multiple layers:
 
 #### Layer 1: Application-Level IP Filtering (Default: Enabled)
 
-**Automatic protection against external access:**
+**Explicit network configuration (required):**
 
 ```yaml
 webhook:
-  local_only: true  # Default: blocks IPs not in allowed_networks
+  local_only: true  # Blocks IPs not in allowed_networks
 
-  # Optional: customize allowed networks (defaults to private ranges)
+  # REQUIRED when local_only: true
   allowed_networks:
-    - "192.168.1.0/24"   # Your home network
-    - "10.0.0.5"         # Specific VPN server
+    - "127.0.0.0/8"       # Localhost
+    - "192.168.1.0/24"    # Your home network
+    - "10.0.0.5"          # Specific VPN server
 ```
 
 **What it does:**
-- ✅ Allows IPs/networks in `allowed_networks` list
-- ✅ Default: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, ::1/128, fe80::/10
+- ✅ Allows only IPs/networks explicitly listed in `allowed_networks`
 - ✅ Supports CIDR notation and individual IPs
 - ❌ Blocks all IPs not in allowed list with 403 Forbidden
 - 📝 Logs blocked attempts: `[SECURITY] Blocked webhook from <IP> (not in allowed networks)`
 - 📋 Logs allowed networks on startup
+- ⚠️ **Fails fast** if `allowed_networks` not specified when `local_only: true`
 
-**When to disable:**
+**When to disable local_only:**
 - ⚠️ Only if using authenticated reverse proxy (e.g., nginx with basic auth, OAuth)
 - ⚠️ Only if reverse proxy handles IP filtering/authentication
 
-**Customizing allowed networks:**
+**Configuration examples:**
+
 ```yaml
-# Example: Restrict to specific subnet only
+# Example 1: Typical home network (recommended starting point)
 webhook:
   local_only: true
   allowed_networks:
-    - "192.168.1.0/24"   # Only this subnet
+    - "127.0.0.0/8"       # Localhost
+    - "192.168.0.0/16"    # All 192.168.x.x networks
+    - "10.0.0.0/8"        # Private Class A
+    - "::1/128"           # IPv6 localhost
 
-# Example: Multiple networks
+# Example 2: Restrict to specific subnet only (most secure)
 webhook:
   local_only: true
   allowed_networks:
-    - "192.168.1.0/24"   # Home network
-    - "10.8.0.0/24"      # VPN network
-    - "172.20.0.5"       # Specific server
+    - "192.168.1.0/24"    # Only devices on 192.168.1.x
 
-# Example: Default behavior (all private ranges)
+# Example 3: Multiple specific networks
 webhook:
   local_only: true
-  # allowed_networks not specified = uses defaults
+  allowed_networks:
+    - "192.168.1.0/24"    # Home network
+    - "10.8.0.0/24"       # VPN network
+    - "172.20.0.5"        # Specific server IP
+
+# Example 4: Disable filtering (use only with reverse proxy)
+webhook:
+  local_only: false
+  # allowed_networks not required when local_only: false
 ```
 
 #### Layer 2: Docker Network Isolation
@@ -429,10 +440,12 @@ npm start 2>&1 | grep SECURITY
 **Log examples:**
 ```
 [info] [SECURITY] Network filtering: ENABLED
-[info] [SECURITY] Allowed networks: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, ::1/128, fe80::/10
+[info] [SECURITY] Allowed networks: 127.0.0.0/8, 192.168.1.0/24, 10.0.0.0/8, ::1/128
 [warn] [SECURITY] Blocked webhook from 203.0.113.45 (not in allowed networks)
 [info] [SECURITY] Webhook authentication: ENABLED
 ```
+
+Note: The allowed networks shown will match your configuration.
 
 ### Public Deployment (Advanced)
 

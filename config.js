@@ -127,10 +127,16 @@ function loadConfig() {
             throw new Error('webhook.local_only must be boolean');
         }
 
-        // Optional allowed_networks (defaults to private ranges)
-        if (config.webhook.allowed_networks !== undefined) {
+        // allowed_networks required when local_only is true
+        if (config.webhook.local_only) {
+            if (!config.webhook.allowed_networks) {
+                throw new Error('webhook.allowed_networks required when local_only is true. Specify allowed IPs/CIDR ranges.');
+            }
             if (!Array.isArray(config.webhook.allowed_networks)) {
                 throw new Error('webhook.allowed_networks must be an array');
+            }
+            if (config.webhook.allowed_networks.length === 0) {
+                throw new Error('webhook.allowed_networks must contain at least one entry');
             }
             // Validate each entry is a string
             for (const network of config.webhook.allowed_networks) {
@@ -138,17 +144,6 @@ function loadConfig() {
                     throw new Error('webhook.allowed_networks entries must be non-empty strings (IP or CIDR)');
                 }
             }
-        } else {
-            // Default to private network ranges
-            config.webhook.allowed_networks = [
-                '127.0.0.0/8',      // Localhost
-                '10.0.0.0/8',       // Private Class A
-                '172.16.0.0/12',    // Private Class B
-                '192.168.0.0/16',   // Private Class C
-                '169.254.0.0/16',   // Link-local
-                '::1/128',          // IPv6 localhost
-                'fe80::/10'         // IPv6 link-local
-            ];
         }
 
         // Optional initial delay before session lookup

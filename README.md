@@ -113,12 +113,13 @@ webhook:
    ```yaml
    webhook:
      local_only: true  # Blocks IPs not in allowed_networks
-     # Optional: customize allowed networks (defaults to private ranges)
+     # REQUIRED when local_only: true
      allowed_networks:
-       - "192.168.1.0/24"   # Your home network
-       - "10.0.0.5"         # Specific IP
+       - "127.0.0.0/8"       # Localhost
+       - "192.168.1.0/24"    # Your home network
+       - "10.0.0.5"          # Specific IP
    ```
-   - Default allowed: 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 127.0.0.0/8, 169.254.0.0/16
+   - **Must specify** `allowed_networks` when `local_only: true` (fails fast if missing)
    - Supports CIDR notation and individual IPs
    - Blocks IPs not in allowed list with 403 Forbidden
    - Set `local_only: false` only if using reverse proxy with own authentication
@@ -276,24 +277,31 @@ Applies only when `mode: "webhook"`.
 **Blocked IPs**: Returns 403 Forbidden with logged warning
 
 #### `webhook.allowed_networks`
-**Type**: Array of Strings | **Optional**: Yes
-**Description**: List of allowed IP addresses and CIDR ranges. Only used when `local_only: true`.
+**Type**: Array of Strings | **Required**: When `local_only: true`
+**Description**: List of allowed IP addresses and CIDR ranges. **Required** when `local_only: true` - config will fail to load if not specified.
 **Format**: CIDR notation (`192.168.1.0/24`) or individual IPs (`10.0.0.5`)
-**Default** (if not specified):
+**Validation**: Must be non-empty array with at least one valid IP/CIDR entry
+
+**Example** (typical home network):
 ```yaml
-- "127.0.0.0/8"      # Localhost
-- "10.0.0.0/8"       # Private Class A
-- "172.16.0.0/12"    # Private Class B
-- "192.168.0.0/16"   # Private Class C
-- "169.254.0.0/16"   # Link-local
-- "::1/128"          # IPv6 localhost
-- "fe80::/10"        # IPv6 link-local
+allowed_networks:
+  - "127.0.0.0/8"      # Localhost
+  - "192.168.1.0/24"   # Home network
+  - "10.0.0.0/8"       # Private Class A (if using)
+  - "::1/128"          # IPv6 localhost
 ```
-**Example** (custom networks):
+
+**Example** (restrictive, specific subnet only):
+```yaml
+allowed_networks:
+  - "192.168.1.0/24"   # Only this subnet
+```
+
+**Example** (multiple networks):
 ```yaml
 allowed_networks:
   - "192.168.1.0/24"   # Home network
-  - "10.5.0.0/16"      # VPN network
+  - "10.8.0.0/24"      # VPN network
   - "172.20.0.5"       # Specific server IP
 ```
 
