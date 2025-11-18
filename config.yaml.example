@@ -4,37 +4,27 @@
 
 config_version: 1
 
-# ============================================================================
-# REQUIRED: Plex Server Connection
-# ============================================================================
+# --- PLEX SERVER CONNECTION ---
 plex_server_url: "http://192.168.1.100:32400"
 plex_token: "YOUR_PLEX_TOKEN_HERE"  # See docs/GETTING-PLEX-TOKEN.md
 owner_username: "your-plex-username"
 
-# ============================================================================
-# REQUIRED: Operation Mode
-# ============================================================================
+# --- EXECUTION ---
 mode: "polling"       # "polling" or "webhook"
 dry_run: true         # true = log only, false = apply changes
 terminate_stream: true  # Terminate session to restart playback
 
-# ============================================================================
-# REQUIRED: Timeouts (seconds)
-# ============================================================================
+# --- TIMEOUTS (SECONDS) ---
 validation_timeout_seconds: 120  # Max wait for session restart after track switch
 plex_api_timeout_seconds: 30     # Plex API request timeout
 graceful_shutdown_seconds: 30    # Time to finish processing before shutdown
 
-# ============================================================================
-# REQUIRED: Console Logging
-# ============================================================================
+# --- CONSOLE LOGGING ---
 console:
   enabled: true      # Enable console output (true/false)
   level: "info"      # error, warn, info, or debug
 
-# ============================================================================
-# OPTIONAL: File Logging (disabled by default)
-# ============================================================================
+# --- FILE LOGGING (OPTIONAL) ---
 # logging:
 #   enabled: true
 #   directory: "/logs"
@@ -42,14 +32,10 @@ console:
 #   max_files: "14d"
 #   level: "info"
 
-# ============================================================================
-# Polling Mode Settings (only when mode: "polling")
-# ============================================================================
+# --- POLLING MODE ---
 check_interval: 10  # Seconds between session checks
 
-# ============================================================================
-# Webhook Mode Settings (only when mode: "webhook")
-# ============================================================================
+# --- WEBHOOK MODE ---
 webhook:
   port: 4444
   host: "0.0.0.0"
@@ -67,9 +53,7 @@ webhook:
     max_attempts: 3
     initial_delay_ms: 500
 
-# ============================================================================
-# REQUIRED: Audio Selection Rules (first match wins)
-# ============================================================================
+# --- AUDIO SELECTION RULES (FIRST MATCH WINS) ---
 audio_selector:
   # AC3 5.1 original language, no commentary
   - codec: "ac3"
