@@ -31,6 +31,10 @@ Complete reference for all `config.yaml` options.
 **Type**: Boolean | **Required**: Yes | **Default**: `true`
 **Description**: `true` = log only, `false` = apply changes. Test with `true` before production.
 
+### `terminate_stream`
+**Type**: Boolean | **Optional**: Yes | **Default**: `true`
+**Description**: Kill playback session after switching audio track. `true` = force restart (validates track switch), `false` = switch only (no restart, no validation).
+
 ### `validation_timeout_seconds`
 **Type**: Integer | **Required**: Yes | **Default**: `120`
 **Description**: Max wait time for session restart after track switch. Timeout clears processing cache, allows retry.
