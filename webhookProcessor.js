@@ -10,16 +10,12 @@ async function findSessionWithRetry(ratingKey, playerUuid, config) {
     const retryDelayMs = config.webhook?.session_retry?.initial_delay_ms || 0; // Base delay for exponential backoff
 
     if (initialDelay > 0) {
-        logger.debug(`Waiting ${initialDelay}ms before session lookup...`);
         await new Promise(resolve => setTimeout(resolve, initialDelay));
     }
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const sessions = await plexClient.fetchSessions();
 
-        if (attempt === 0) {
-            logger.debug(`Active sessions: ${sessions.length}`);
-        }
 
         const matchingSession = sessions.find(s => {
             const ratingKeyMatch = String(s.ratingKey) === String(ratingKey);
@@ -30,41 +26,27 @@ async function findSessionWithRetry(ratingKey, playerUuid, config) {
 
         if (matchingSession) {
             if (attempt > 0) {
-                logger.info(`Session found after ${attempt + 1} attempts (${ratingKey})`);
+                logger.info(`Session found: ${ratingKey} (${attempt + 1} attempts)`);
             }
             return matchingSession;
         }
 
-        // Debug: Log what sessions we actually have when no match found
         if (attempt === 0 && sessions.length > 0) {
-            logger.debug(`No match found. Wanted: ratingKey=${ratingKey}, player=${playerUuid}`);
-            logger.debug(`Actual sessions (${sessions.length}):`);
-            sessions.forEach((s, idx) => {
-                logger.debug(`  [${idx}] Full session: ${JSON.stringify({
-                    ratingKey: s.ratingKey,
-                    sessionKey: s.sessionKey,
-                    type: s.type,
-                    title: s.title,
-                    grandparentTitle: s.grandparentTitle,
-                    Player: s.Player,
-                    User: s.User,
-                    TranscodeSession: s.TranscodeSession ? 'present' : 'absent'
-                }, null, 2)}`);
-            });
+            logger.debug(`No match: want ratingKey=${ratingKey} player=${playerUuid}`);
+            logger.debug(`Sessions: ${sessions.map((s, i) => `[${i}] ${s.ratingKey}:${s.sessionKey}`).join(', ')}`);
         }
 
-        // Not the last attempt, wait and retry
         if (attempt < maxRetries - 1) {
             const delayMs = retryDelayMs * Math.pow(2, attempt);
-            logger.debug(`Session not found (attempt ${attempt + 1}/${maxRetries}), retrying in ${delayMs}ms...`);
+            logger.debug(`Retry ${attempt + 1}/${maxRetries} in ${delayMs}ms`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
     }
 
     if (maxRetries > 1) {
-        logger.warn(`No session found for ${ratingKey} after ${maxRetries} attempts (webhook may have arrived too early)`);
+        logger.warn(`No session: ${ratingKey} (${maxRetries} attempts) - webhook too early, increase initial_delay_ms/max_attempts`);
     } else {
-        logger.debug(`No session found for ${ratingKey} (webhook may have arrived before session created)`);
+        logger.debug(`No session: ${ratingKey}`);
     }
     return null;
 }
@@ -73,59 +55,46 @@ async function processWebhook(payload, config) {
     try {
         const event = payload.event;
 
-        logger.debug(`[PROCESSOR] Received event: ${event}, Metadata type: ${payload.Metadata?.type}`);
-
         if (!RELEVANT_EVENTS.includes(event)) {
-            logger.debug(`Ignoring: ${event} (not in ${RELEVANT_EVENTS.join(', ')})`);
             return;
         }
-
-        logger.info(`Webhook: ${event}`);
 
         const ratingKey = payload.Metadata?.ratingKey;
         const playerUuid = payload.Player?.uuid;
         const userTitle = payload.Account?.title;
 
         if (!ratingKey || !playerUuid) {
-            logger.warn(`Missing data: ratingKey=${ratingKey}, playerUuid=${playerUuid}`);
+            logger.warn(`Malformed webhook: missing ratingKey=${ratingKey} playerUuid=${playerUuid} - check Plex webhook config`);
             return;
         }
 
-        logger.debug(`Session search: media=${ratingKey}, player=${playerUuid}, user=${userTitle}`);
+        logger.debug(`Search: media=${ratingKey} player=${playerUuid} user=${userTitle}`);
 
-        // Check if this media+player was recently processed and needs validation
         const processingInfo = audioFixer.getProcessingInfo(ratingKey, playerUuid);
         if (processingInfo) {
-            logger.debug(`Found processing info for ${ratingKey}:${playerUuid}, checking for restart...`);
-
             const matchingSession = await findSessionWithRetry(ratingKey, playerUuid, config);
             if (matchingSession) {
                 const validationResult = audioFixer.validateSessionRestart(matchingSession, processingInfo);
 
                 if (validationResult === true) {
-                    // Success - clear the processing info
                     audioFixer.clearProcessingInfo(ratingKey, playerUuid);
-                    logger.info(`✓ Audio track switch validated successfully for ${ratingKey}`);
+                    logger.info(`Validated: ${ratingKey}`);
                     return;
                 } else if (validationResult === false) {
-                    // Failed validation - clear and allow reprocessing
                     audioFixer.clearProcessingInfo(ratingKey, playerUuid);
-                    logger.warn(`Audio track switch validation failed for ${ratingKey}`);
+                    logger.warn(`Validation failed: ${ratingKey} - still transcoding or wrong stream selected`);
                     return;
                 }
-                // validationResult === null means same session, keep waiting
-                logger.debug(`Same session, waiting for restart...`);
+                logger.debug(`Same session, waiting`);
                 return;
             } else {
-                // No session found during validation period - keep waiting
-                logger.debug(`No session found during validation, will check on next webhook`);
+                logger.debug(`Validation pending`);
                 return;
             }
         }
 
-        // Not in processing cache, check if already processed and in cooldown
         if (audioFixer.isProcessed(ratingKey)) {
-            logger.debug(`Already processed: ${ratingKey}`);
+            logger.debug(`Processed: ${ratingKey}`);
             return;
         }
 
@@ -135,10 +104,7 @@ async function processWebhook(payload, config) {
             return;
         }
 
-        logger.debug(`Found: ${matchingSession.sessionKey}`);
-
         if (!matchingSession.TranscodeSession) {
-            logger.info(`Direct play - skipping`);
             return;
         }
 
@@ -146,13 +112,13 @@ async function processWebhook(payload, config) {
         const success = await audioFixer.processTranscodingSession(matchingSession, config);
 
         if (success) {
-            logger.info(`Audio switch initiated: ${ratingKey}`);
+            logger.info(`Switched: ${ratingKey}`);
         } else {
-            logger.warn(`Failed to switch audio: ${ratingKey}`);
+            logger.warn(`Switch failed: ${ratingKey}`);
         }
 
     } catch (error) {
-        logger.error(`Webhook error: ${error.message}`);
+        logger.error(`Webhook: ${error.message}`);
         logger.debug(error.stack);
     }
 }

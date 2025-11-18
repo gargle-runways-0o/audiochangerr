@@ -36,14 +36,13 @@ function configureFileLogging(loggingConfig) {
     const maxFiles = loggingConfig.max_files || process.env.LOG_MAX_FILES || '14d';
     const fileLevel = loggingConfig.level || process.env.LOG_LEVEL || 'info';
 
-    // Ensure log directory exists
     try {
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
-            logger.info(`Created log directory: ${logDir}`);
+            logger.info(`Log dir: ${logDir}`);
         }
     } catch (error) {
-        logger.error(`Failed to create log directory ${logDir}: ${error.message}`);
+        logger.error(`Log dir: ${error.message}`);
         return;
     }
 
@@ -57,17 +56,16 @@ function configureFileLogging(loggingConfig) {
         format: logFormat,
     });
 
-    // Handle rotation events
     fileTransport.on('rotate', (oldFilename, newFilename) => {
-        logger.debug(`Log rotated: ${oldFilename} -> ${newFilename}`);
+        logger.debug(`Rotated: ${oldFilename} -> ${newFilename}`);
     });
 
     fileTransport.on('error', (error) => {
-        logger.error(`File transport error: ${error.message}`);
+        logger.error(`File: ${error.message}`);
     });
 
     logger.add(fileTransport);
-    logger.info(`File logging enabled: ${logDir}/audiochangerr-*.log (max: ${maxSize}, retention: ${maxFiles})`);
+    logger.info(`File logging: ${logDir}/audiochangerr-*.log (${maxSize}, ${maxFiles})`);
 }
 
 /**
@@ -82,19 +80,17 @@ function configureConsoleLogging(consoleConfig) {
     const consoleLevel = consoleConfig.level;
     const consoleEnabled = consoleConfig.enabled;
 
-    // Remove existing console transport
     logger.remove(defaultConsoleTransport);
 
-    // Add new console transport if enabled
     if (consoleEnabled) {
         const newConsoleTransport = new winston.transports.Console({
             level: consoleLevel,
             format: logFormat,
         });
         logger.add(newConsoleTransport);
-        logger.info(`Console logging: level=${consoleLevel}`);
+        logger.info(`Console: ${consoleLevel}`);
     } else {
-        logger.warn('Console logging disabled');
+        logger.warn('Console: disabled');
     }
 }
 

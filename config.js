@@ -41,12 +41,12 @@ function loadConfig() {
     let configPath;
     if (fs.existsSync(dockerConfigPath)) {
         configPath = dockerConfigPath;
-        logger.debug(`Using config from Docker volume: ${dockerConfigPath}`);
+        logger.debug(`Config: ${dockerConfigPath}`);
     } else if (fs.existsSync(localConfigPath)) {
         configPath = localConfigPath;
-        logger.debug(`Using config from local directory: ${localConfigPath}`);
+        logger.debug(`Config: ${localConfigPath}`);
     } else {
-        throw new Error(`Config not found. Tried: ${dockerConfigPath}, ${localConfigPath}`);
+        throw new Error(`Config not found: ${dockerConfigPath}, ${localConfigPath}`);
     }
 
     let config;
@@ -238,7 +238,7 @@ function loadConfig() {
         }
     }
 
-    logger.debug(`Loaded: mode=${config.mode}, dry_run=${config.dry_run}`);
+    logger.debug(`mode=${config.mode} dry_run=${config.dry_run}`);
 
     return config;
 }

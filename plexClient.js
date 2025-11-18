@@ -28,11 +28,11 @@ async function fetchSessions() {
                 return response.data.MediaContainer.Metadata || [];
             } catch (error) {
                 if (error.response) {
-                    logger.error(`GET /status/sessions: ${error.response.status} ${error.response.statusText}`);
+                    logger.error(`Sessions: ${error.response.status} - check Plex server URL and token`);
                     logger.debug(error.stack);
-                    throw new Error(`Plex API error: ${error.response.status} ${error.response.statusText}`);
+                    throw new Error(`Plex API: ${error.response.status} ${error.response.statusText}`);
                 } else {
-                    logger.error(`GET /status/sessions: ${error.message}`);
+                    logger.error(`Sessions: ${error.message} - check Plex server connectivity`);
                     logger.debug(error.stack);
                     throw error;
                 }
@@ -56,11 +56,11 @@ async function fetchMetadata(ratingKey) {
                 return metadata;
             } catch (error) {
                 if (error.response) {
-                    logger.error(`GET /library/metadata/${ratingKey}: ${error.response.status} ${error.response.statusText}`);
+                    logger.error(`Metadata ${ratingKey}: ${error.response.status} - check media exists in Plex`);
                     logger.debug(error.stack);
-                    throw new Error(`Plex metadata fetch failed: ${error.response.status}`);
+                    throw new Error(`Plex metadata: ${error.response.status}`);
                 } else {
-                    logger.error(`GET /library/metadata/${ratingKey}: ${error.message}`);
+                    logger.error(`Metadata ${ratingKey}: ${error.message} - check Plex connectivity`);
                     logger.debug(error.stack);
                     throw error;
                 }
@@ -73,9 +73,9 @@ async function fetchMetadata(ratingKey) {
 }
 
 async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
-    const tokenStatus = userToken ? 'provided' : 'owner';
+    const tokenStatus = userToken ? 'user' : 'owner';
     if (dry_run) {
-        logger.info(`[DRY RUN] Set audio: part ${partId}, stream ${streamId}, token ${tokenStatus}`);
+        logger.info(`[DRY] Set audio: part=${partId} stream=${streamId} token=${tokenStatus}`);
         return;
     }
 
@@ -84,12 +84,10 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
     try {
         const url = `/library/parts/${partId}`;
         const params = { allParts: 1, audioStreamID: streamId };
-        logger.debug(`PUT ${url}: ${JSON.stringify(params)}, token ${tokenStatus}`);
         const response = await plexApi.put(url, null, { params, headers });
-        logger.debug(`Response: ${response.status} ${response.statusText}`);
-        logger.info(`Set audio: part ${partId}, stream ${streamId}, token ${tokenStatus}`);
+        logger.debug(`Set audio: part=${partId} stream=${streamId} token=${tokenStatus}`);
     } catch (error) {
-        logger.error(`Set audio failed: part ${partId}, ${error.message}`);
+        logger.error(`Set audio: ${error.message} - check Plex permissions and stream exists`);
         throw error;
     }
 }
@@ -97,9 +95,9 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
 async function terminateTranscode(transcodeKey) {
     try {
         await plexApi.delete(transcodeKey);
-        logger.debug(`Terminated transcode: ${transcodeKey}`);
+        logger.debug(`Kill transcode: ${transcodeKey}`);
     } catch (error) {
-        logger.error(`Failed to terminate transcode ${transcodeKey}: ${error.message}`);
+        logger.error(`Kill transcode: ${error.message}`);
         logger.debug(error.stack);
         throw error;
     }
@@ -110,9 +108,9 @@ async function terminateSession(sessionId, reason) {
         await plexApi.get('/status/sessions/terminate', {
             params: { sessionId, reason }
         });
-        logger.debug(`Terminated session: ${sessionId}`);
+        logger.debug(`Kill session: ${sessionId}`);
     } catch (error) {
-        logger.error(`Failed to terminate session ${sessionId}: ${error.message}`);
+        logger.error(`Kill session: ${error.message}`);
         logger.debug(error.stack);
         throw error;
     }
@@ -133,7 +131,7 @@ async function getUserDetailsFromXml(xml) {
         });
         return extractedData;
     } catch (error) {
-        logger.error(`XML parse error: ${error.message}`);
+        logger.error(`XML: ${error.message}`);
         return {};
     }
 }
@@ -155,7 +153,7 @@ async function fetchManagedUserTokens() {
         );
 
         if (!server || !server.$.clientIdentifier) {
-            logger.error('No clientIdentifier in /api/resources');
+            logger.error('No clientIdentifier - check Plex.tv access and server registration');
             return {};
         }
         const clientIdentifier = server.$.clientIdentifier;
@@ -163,25 +161,23 @@ async function fetchManagedUserTokens() {
         const sharedServersResponse = await plexTvApi.get(`/api/servers/${clientIdentifier}/shared_servers`);
         const managedUserTokens = await getUserDetailsFromXml(sharedServersResponse.data);
 
-        logger.info(`Fetched ${Object.keys(managedUserTokens).length} managed user tokens`);
+        logger.info(`Managed users: ${Object.keys(managedUserTokens).length}`);
         return managedUserTokens;
 
     } catch (error) {
         if (error.response) {
             const status = error.response.status;
-            logger.error(`Fetch managed tokens: ${status} ${error.response.statusText}`);
+            logger.error(`Managed tokens: ${status} - check Plex.tv token has admin access`);
 
-            // 404 is expected if no managed users - return empty
             if (status === 404) {
-                logger.info('No managed users found (404 expected)');
+                logger.info('No managed users');
                 return {};
             }
 
-            // Auth or other errors should fail fast
             logger.debug(error.stack);
-            throw new Error(`Managed user token fetch failed: ${status}`);
+            throw new Error(`Managed tokens: ${status}`);
         } else {
-            logger.error(`Fetch managed tokens: ${error.message}`);
+            logger.error(`Managed tokens: ${error.message} - check Plex.tv connectivity`);
             logger.debug(error.stack);
             throw error;
         }
