@@ -14,8 +14,9 @@ owner_username: "your-plex-username"
 # ============================================================================
 # REQUIRED: Operation Mode
 # ============================================================================
-mode: "polling"  # "polling" or "webhook"
-dry_run: true    # true = log only, false = apply changes
+mode: "polling"       # "polling" or "webhook"
+dry_run: true         # true = log only, false = apply changes
+terminate_stream: true  # Terminate session to restart playback
 
 # ============================================================================
 # REQUIRED: Timeouts (seconds)

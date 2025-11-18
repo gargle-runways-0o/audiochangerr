@@ -44,6 +44,7 @@ describe('config validation', () => {
             graceful_shutdown_seconds: 30,
             mode: 'polling',
             dry_run: true,
+            terminate_stream: true,
             check_interval: 10,
             console: {
                 enabled: true,
@@ -183,6 +184,7 @@ describe('config validation', () => {
             graceful_shutdown_seconds: 30,
             mode: 'polling',
             dry_run: true,
+            terminate_stream: true,
             check_interval: 10,
             console: {
                 enabled: true,
@@ -262,6 +264,7 @@ describe('config validation', () => {
                 graceful_shutdown_seconds: 30,
                 mode: 'polling',
                 dry_run: true,
+                terminate_stream: true,
                 check_interval: 10,
                 console: {
                     enabled: true,

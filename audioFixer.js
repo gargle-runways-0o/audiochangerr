@@ -66,34 +66,49 @@ async function resolveUserToken(session, config) {
     return null;
 }
 
-async function switchToStreamAndRestart(session, bestStream, userToken, config) {
-    const partId = getPartId(session);
-    await plexClient.setSelectedAudioStream(partId, bestStream.id, userToken, config.dry_run);
+async function terminateStream(session, reason, config) {
+    if (!config.terminate_stream) {
+        logger.debug('Skip termination');
+        return false;
+    }
 
     if (config.dry_run) {
         logger.info(`[DRY] Kill transcode: ${session.TranscodeSession.key}`);
         logger.info(`[DRY] Kill session: ${session.Session.id}`);
-        return true;
+        return false;
     }
 
     await plexClient.terminateTranscode(session.TranscodeSession.key);
     logger.debug(`Kill transcode: ${session.TranscodeSession.key}`);
 
-    const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
     await plexClient.terminateSession(session.Session.id, reason);
     logger.debug(`Kill session: ${session.Session.id}`);
 
-    const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
-    const processingKey = `${session.ratingKey}:${playerUuid}`;
-    processedMedia.set(processingKey, {
-        timestamp: Date.now(),
-        ratingKey: session.ratingKey,
-        playerUuid: playerUuid,
-        expectedStreamId: bestStream.id,
-        originalSessionKey: session.sessionKey
-    });
+    return true;
+}
 
-    logger.info(`Switched to ${bestStream.id}, awaiting validation`);
+async function switchToStreamAndRestart(session, bestStream, userToken, config) {
+    const partId = getPartId(session);
+    await plexClient.setSelectedAudioStream(partId, bestStream.id, userToken, config.dry_run);
+
+    const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
+    const terminated = await terminateStream(session, reason, config);
+
+    if (terminated) {
+        const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
+        const processingKey = `${session.ratingKey}:${playerUuid}`;
+        processedMedia.set(processingKey, {
+            timestamp: Date.now(),
+            ratingKey: session.ratingKey,
+            playerUuid: playerUuid,
+            expectedStreamId: bestStream.id,
+            originalSessionKey: session.sessionKey
+        });
+        logger.info(`Switched to ${bestStream.id}, awaiting validation`);
+    } else {
+        logger.info(`Switched to ${bestStream.id}`);
+    }
+
     return true;
 }
 
