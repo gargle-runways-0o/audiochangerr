@@ -166,7 +166,7 @@ See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md) for detailed webhook configuration (Ple
 
 ### Console Logging
 
-Configure console/terminal output:
+Configure console/terminal output (required):
 
 ```yaml
 console:
@@ -174,11 +174,11 @@ console:
   level: "info"
 ```
 
-**Options**:
-- `enabled`: `true` to show console output, `false` to disable (default: `true`)
-- `level`: Minimum log level for console: `error`, `warn`, `info`, `debug` (default: `info`)
+**Required fields**:
+- `enabled`: `true` to show console output, `false` to disable (no default - must specify)
+- `level`: Minimum log level for console: `error`, `warn`, `info`, `debug` (no default - must specify)
 
-**If not specified**: Defaults to `LOG_LEVEL` environment variable or `info`
+**Fails fast if not specified**: Config will not load without explicit console configuration
 
 ### File Logging
 
@@ -355,17 +355,17 @@ allowed_networks:
 ### Logging Settings
 
 #### `console`
-**Type**: Object | **Optional**: Yes
-**Description**: Console logging configuration. Controls terminal/stdout output.
+**Type**: Object | **Required**: Yes
+**Description**: Console logging configuration. Controls terminal/stdout output. **Required** - config fails to load if not specified.
 
 #### `console.enabled`
-**Type**: Boolean | **Optional**: Yes | **Default**: `true`
-**Description**: Enable console output. `false` disables all console logging (useful when only file logging desired).
+**Type**: Boolean | **Required**: Yes
+**Description**: Enable console output. `false` disables all console logging (useful when only file logging desired). Must be explicitly set to `true` or `false`.
 
 #### `console.level`
-**Type**: String | **Optional**: Yes | **Default**: `info`
+**Type**: String | **Required**: Yes
 **Options**: `error`, `warn`, `info`, `debug`
-**Description**: Minimum log level for console output. If not specified, defaults to `LOG_LEVEL` environment variable or `info`.
+**Description**: Minimum log level for console output. Must be explicitly specified (no defaults).
 
 #### `logging`
 **Type**: Object | **Optional**: Yes

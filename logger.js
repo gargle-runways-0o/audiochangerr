@@ -72,18 +72,15 @@ function configureFileLogging(loggingConfig) {
 
 /**
  * Configure console logging
- * @param {Object} consoleConfig - Console configuration from config.yaml
+ * @param {Object} consoleConfig - Console configuration from config.yaml (required)
  */
 function configureConsoleLogging(consoleConfig) {
     if (!consoleConfig) {
-        return;
+        throw new Error('Console configuration required');
     }
 
-    // Determine console log level
-    const consoleLevel = consoleConfig.level || process.env.LOG_LEVEL || 'info';
-
-    // Determine if console should be enabled (default: true)
-    const consoleEnabled = consoleConfig.enabled !== false;
+    const consoleLevel = consoleConfig.level;
+    const consoleEnabled = consoleConfig.enabled;
 
     // Remove existing console transport
     logger.remove(defaultConsoleTransport);

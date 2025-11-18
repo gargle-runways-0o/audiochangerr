@@ -175,24 +175,29 @@ function loadConfig() {
         throw new Error(`Unsupported config version: ${config.config_version}. This version supports: 1`);
     }
 
-    // Optional console logging configuration
-    if (config.console !== undefined) {
-        if (typeof config.console !== 'object') {
-            throw new Error('console must be an object');
-        }
+    // Console logging configuration (required)
+    if (!config.console) {
+        throw new Error('console configuration required. Specify console.enabled and console.level.');
+    }
+    if (typeof config.console !== 'object') {
+        throw new Error('console must be an object');
+    }
 
-        // Validate console.enabled
-        if (config.console.enabled !== undefined && typeof config.console.enabled !== 'boolean') {
-            throw new Error('console.enabled must be boolean');
-        }
+    // Validate console.enabled (required)
+    if (config.console.enabled === undefined) {
+        throw new Error('console.enabled required (true or false)');
+    }
+    if (typeof config.console.enabled !== 'boolean') {
+        throw new Error('console.enabled must be boolean');
+    }
 
-        // Validate console.level
-        if (config.console.level !== undefined) {
-            const validLevels = ['error', 'warn', 'info', 'debug'];
-            if (!validLevels.includes(config.console.level)) {
-                throw new Error(`console.level must be one of: ${validLevels.join(', ')}`);
-            }
-        }
+    // Validate console.level (required)
+    if (!config.console.level) {
+        throw new Error('console.level required (error, warn, info, or debug)');
+    }
+    const validLevels = ['error', 'warn', 'info', 'debug'];
+    if (!validLevels.includes(config.console.level)) {
+        throw new Error(`console.level must be one of: ${validLevels.join(', ')}`);
     }
 
     // Optional file logging configuration
