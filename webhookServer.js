@@ -98,7 +98,8 @@ function mapTautulliEvent(eventName) {
         'play': 'media.play',
         'playback.start': 'media.play',
         'resume': 'media.resume',
-        'playback.resume': 'media.resume'
+        'playback.resume': 'media.resume',
+        'transcode_decision': 'media.transcode_decision'
     };
 
     return mapping[eventName] || eventName;
@@ -125,7 +126,7 @@ function normalizeTautulliPayload(body) {
 
     logger.debug(`Tautulli: event=${event} key=${ratingKey} user=${username} player=${playerUuid}`);
 
-    return {
+    const normalized = {
         event: mapTautulliEvent(event),
         Account: {
             title: username || 'unknown'
@@ -140,6 +141,29 @@ function normalizeTautulliPayload(body) {
         },
         _source: 'tautulli'
     };
+
+    // Preserve transcode decision fields if present
+    if (body.transcode_decision) {
+        normalized.transcode_decision = body.transcode_decision;
+        logger.debug(`Transcode: overall=${body.transcode_decision}`);
+    }
+    if (body.audio_decision) {
+        normalized.audio_decision = body.audio_decision;
+        logger.debug(`Audio decision: ${body.audio_decision}`);
+    }
+    if (body.video_decision) {
+        normalized.video_decision = body.video_decision;
+        logger.debug(`Video decision: ${body.video_decision}`);
+    }
+    if (body.subtitle_decision) {
+        normalized.subtitle_decision = body.subtitle_decision;
+    }
+
+    // Preserve rating_key and machine_id for validation matching
+    normalized.rating_key = ratingKey;
+    normalized.machine_id = playerUuid;
+
+    return normalized;
 }
 
 /**

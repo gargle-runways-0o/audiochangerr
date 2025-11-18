@@ -2,7 +2,7 @@ const logger = require('./logger');
 const plexClient = require('./plexClient');
 const audioFixer = require('./audioFixer');
 
-const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started'];
+const RELEVANT_EVENTS = ['media.play', 'media.resume', 'playback.started', 'media.transcode_decision'];
 
 async function findSessionWithRetry(ratingKey, playerUuid, config) {
     const initialDelay = config.webhook?.initial_delay_ms || 0; // Delay before first attempt
@@ -69,6 +69,36 @@ async function processWebhook(payload, config) {
         }
 
         logger.debug(`Search: media=${ratingKey} player=${playerUuid} user=${userTitle}`);
+
+        // Handle transcode decision webhooks
+        if (event === 'media.transcode_decision') {
+            logger.debug(`Transcode decision webhook received`);
+            const processingInfo = audioFixer.getProcessingInfo(ratingKey, playerUuid);
+
+            if (processingInfo && !processingInfo.terminated) {
+                logger.debug(`Found processing info for non-terminated session`);
+                const validationResult = audioFixer.validateTranscodeDecision(payload, processingInfo);
+
+                if (validationResult === true) {
+                    audioFixer.clearProcessingInfo(ratingKey, playerUuid);
+                    logger.info(`Validated: ${ratingKey}`);
+                    return;
+                } else if (validationResult === false) {
+                    audioFixer.clearProcessingInfo(ratingKey, playerUuid);
+                    logger.warn(`Validation failed: ${ratingKey}`);
+                    return;
+                } else {
+                    logger.debug(`Validation returned null, keeping tracking`);
+                    return;
+                }
+            } else if (processingInfo && processingInfo.terminated) {
+                logger.debug(`Ignoring transcode decision - session was terminated`);
+                return;
+            } else {
+                logger.debug(`No processing info found for transcode decision`);
+                return;
+            }
+        }
 
         const processingInfo = audioFixer.getProcessingInfo(ratingKey, playerUuid);
         if (processingInfo) {

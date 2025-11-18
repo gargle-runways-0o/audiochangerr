@@ -40,6 +40,48 @@ function validateSessionRestart(session, processingInfo) {
     }
 }
 
+/**
+ * Validates a transcode decision change from Tautulli webhook.
+ * Used when terminate_stream is false to check if in-place switch worked.
+ */
+function validateTranscodeDecision(webhookData, processingInfo) {
+    const ratingKey = webhookData.rating_key || webhookData.ratingKey;
+    const audioDecision = webhookData.audio_decision;
+    const videoDecision = webhookData.video_decision;
+    const transcodeDecision = webhookData.transcode_decision;
+
+    logger.debug(`Transcode decision webhook: key=${ratingKey} audio=${audioDecision} video=${videoDecision} overall=${transcodeDecision}`);
+    logger.debug(`Expected stream: ${processingInfo.expectedStreamId}`);
+
+    logger.info(`Transcode decision: ${ratingKey}`);
+
+    if (!audioDecision) {
+        logger.warn('Missing audio_decision in webhook - check Tautulli payload');
+        return null;
+    }
+
+    if (audioDecision === 'direct play' || audioDecision === 'copy') {
+        logger.info(`Audio: direct play`);
+
+        if (videoDecision === 'transcode') {
+            logger.info(`Video: still transcoding (audio success, video separate issue)`);
+            return true;
+        } else if (videoDecision === 'direct play' || videoDecision === 'copy') {
+            logger.info(`Video: direct play`);
+            return true;
+        } else {
+            logger.debug(`Video decision: ${videoDecision}`);
+            return true;
+        }
+    } else if (audioDecision === 'transcode') {
+        logger.warn('Audio: still transcoding - switch too slow or client rejected stream');
+        return false;
+    } else {
+        logger.debug(`Unknown audio decision: ${audioDecision}`);
+        return null;
+    }
+}
+
 function setValidationTimeout(timeoutSeconds) {
     if (!timeoutSeconds || typeof timeoutSeconds !== 'number' || timeoutSeconds <= 0) {
         throw new Error(`setValidationTimeout requires a positive number (got: ${timeoutSeconds})`);
@@ -91,14 +133,28 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
             ratingKey: session.ratingKey,
             playerUuid: playerUuid,
             expectedStreamId: bestStream.id,
-            originalSessionKey: session.sessionKey
+            originalSessionKey: session.sessionKey,
+            terminated: true
         });
 
         logger.info(`Switched to ${bestStream.id}, awaiting validation`);
     } else {
         logger.debug(`Skip transcode kill: ${session.TranscodeSession.key}`);
         logger.debug(`Skip session kill: ${session.Session.id}`);
-        logger.info(`Stream set: ${bestStream.id}`);
+
+        const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
+        const processingKey = `${session.ratingKey}:${playerUuid}`;
+        processedMedia.set(processingKey, {
+            timestamp: Date.now(),
+            ratingKey: session.ratingKey,
+            playerUuid: playerUuid,
+            expectedStreamId: bestStream.id,
+            originalSessionKey: session.sessionKey,
+            terminated: false
+        });
+        logger.debug(`Track: ${processingKey} stream=${bestStream.id} session=${session.sessionKey}`);
+
+        logger.info(`Stream set: ${bestStream.id}, awaiting validation`);
     }
 
     return true;
@@ -233,6 +289,7 @@ function markAsProcessed(ratingKey, playerUuid = 'polling') {
 module.exports = {
     processTranscodingSession,
     validateSessionRestart,
+    validateTranscodeDecision,
     setValidationTimeout,
     cleanupProcessedMedia,
     getProcessingInfo,
