@@ -31,6 +31,14 @@ Complete reference for all `config.yaml` options.
 **Type**: Boolean | **Required**: Yes | **Default**: `true`
 **Description**: `true` = log only, `false` = apply changes. Test with `true` before production.
 
+### `terminate_stream`
+**Type**: Boolean | **Required**: No | **Default**: `true`
+**Description**: Control whether to terminate the playback session after switching audio streams.
+- `true`: Automatically terminate and restart the session (client auto-restarts playback with new stream)
+- `false`: Switch audio stream but don't terminate session (user must manually restart playback)
+
+**Note**: When `false`, the audio stream preference is saved but requires manual playback restart. Useful if you want to avoid interrupting active playback.
+
 ### `validation_timeout_seconds`
 **Type**: Integer | **Required**: Yes | **Default**: `120`
 **Description**: Max wait time for session restart after track switch. Timeout clears processing cache, allows retry.

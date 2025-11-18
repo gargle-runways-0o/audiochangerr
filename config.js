@@ -85,6 +85,14 @@ function loadConfig() {
         throw new Error(`dry_run must be boolean (got: ${config.dry_run})`);
     }
 
+    // Terminate stream defaults to true if not specified
+    if (config.terminate_stream === undefined) {
+        config.terminate_stream = true;
+    }
+    if (typeof config.terminate_stream !== 'boolean') {
+        throw new Error(`terminate_stream must be boolean (got: ${config.terminate_stream})`);
+    }
+
     // Check interval required for polling mode
     if (config.mode === 'polling') {
         if (!config.check_interval || typeof config.check_interval !== 'number' || config.check_interval <= 0) {
@@ -238,7 +246,7 @@ function loadConfig() {
         }
     }
 
-    logger.debug(`mode=${config.mode} dry_run=${config.dry_run}`);
+    logger.debug(`mode=${config.mode} dry_run=${config.dry_run} terminate_stream=${config.terminate_stream}`);
 
     return config;
 }

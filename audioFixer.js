@@ -76,24 +76,29 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
         return true;
     }
 
-    await plexClient.terminateTranscode(session.TranscodeSession.key);
-    logger.debug(`Kill transcode: ${session.TranscodeSession.key}`);
+    if (config.terminate_stream) {
+        await plexClient.terminateTranscode(session.TranscodeSession.key);
+        logger.debug(`Kill transcode: ${session.TranscodeSession.key}`);
 
-    const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
-    await plexClient.terminateSession(session.Session.id, reason);
-    logger.debug(`Kill session: ${session.Session.id}`);
+        const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
+        await plexClient.terminateSession(session.Session.id, reason);
+        logger.debug(`Kill session: ${session.Session.id}`);
 
-    const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
-    const processingKey = `${session.ratingKey}:${playerUuid}`;
-    processedMedia.set(processingKey, {
-        timestamp: Date.now(),
-        ratingKey: session.ratingKey,
-        playerUuid: playerUuid,
-        expectedStreamId: bestStream.id,
-        originalSessionKey: session.sessionKey
-    });
+        const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
+        const processingKey = `${session.ratingKey}:${playerUuid}`;
+        processedMedia.set(processingKey, {
+            timestamp: Date.now(),
+            ratingKey: session.ratingKey,
+            playerUuid: playerUuid,
+            expectedStreamId: bestStream.id,
+            originalSessionKey: session.sessionKey
+        });
 
-    logger.info(`Switched to ${bestStream.id}, awaiting validation`);
+        logger.info(`Switched to ${bestStream.id}, awaiting validation`);
+    } else {
+        logger.info(`Switched to ${bestStream.id} (terminate_stream disabled, client must restart manually)`);
+    }
+
     return true;
 }
 
