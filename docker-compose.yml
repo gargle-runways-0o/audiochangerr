@@ -22,7 +22,8 @@ services:
     #   - "4444:4444"
 
     volumes:
-      # Config file location
+      # REQUIRED: Config file (NOT included in Docker image - must be provided via volume mount)
+      # Create config.yaml from config.yaml.example before starting container
       - ./config.yaml:/config/config.yaml:ro
 
       # Optional: Log file directory (if logging.enabled: true in config)

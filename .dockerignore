@@ -3,6 +3,7 @@ node_modules/
 config/
 logs/
 config.yaml
+config.yaml.example
 npm-debug.log
 Dockerfile
 .dockerignore

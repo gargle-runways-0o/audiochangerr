@@ -27,10 +27,18 @@ npm start
 ```
 
 ### Docker
+
+**IMPORTANT**: The config.yaml file is NOT included in the Docker image. You must create it from config.yaml.example and provide it via volume mount.
+
 ```bash
+# 1. Create config.yaml from example
+cp config.yaml.example config.yaml
+nano config.yaml  # Edit with your settings
+
+# 2. Run container with config volume mount
 docker run -d \
   --name audiochangerr \
-  -v /path/to/config:/config \
+  -v /path/to/config.yaml:/config/config.yaml:ro \
   -v /path/to/logs:/logs \
   -p 4444:4444 \
   audiochangerr
@@ -58,7 +66,7 @@ docker run -d \
   -e LOG_DIRECTORY=/logs \
   -e LOG_MAX_SIZE=20m \
   -e LOG_MAX_FILES=14d \
-  -v /path/to/config:/config \
+  -v /path/to/config.yaml:/config/config.yaml:ro \
   -v /path/to/logs:/logs \
   -p 4444:4444 \
   audiochangerr
