@@ -96,7 +96,7 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
 
         logger.info(`Switched to ${bestStream.id}, awaiting validation`);
     } else {
-        logger.info(`Switched to ${bestStream.id} (terminate_stream disabled, client must restart manually)`);
+        logger.info(`Stream set: ${bestStream.id}`);
     }
 
     return true;

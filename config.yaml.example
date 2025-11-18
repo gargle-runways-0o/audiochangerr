@@ -10,7 +10,7 @@ owner_username: "your-plex-username"
 
 mode: "polling"
 dry_run: true
-terminate_stream: true  # Terminate session after switching audio stream (client auto-restarts)
+terminate_stream: true
 validation_timeout_seconds: 120
 
 # Console output (required)
