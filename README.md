@@ -112,11 +112,16 @@ webhook:
 1. **Application-level IP filtering** (default: enabled)
    ```yaml
    webhook:
-     local_only: true  # Blocks external IPs automatically
+     local_only: true  # Blocks IPs not in allowed_networks
+     # Optional: customize allowed networks (defaults to private ranges)
+     allowed_networks:
+       - "192.168.1.0/24"   # Your home network
+       - "10.0.0.5"         # Specific IP
    ```
-   - Allows: 192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x
-   - Blocks: All external/public IPs with 403 Forbidden
-   - Set to `false` only if using reverse proxy with own authentication
+   - Default allowed: 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 127.0.0.0/8, 169.254.0.0/16
+   - Supports CIDR notation and individual IPs
+   - Blocks IPs not in allowed list with 403 Forbidden
+   - Set `local_only: false` only if using reverse proxy with own authentication
 
 2. **Docker port binding** (local network only)
    ```bash
@@ -265,10 +270,32 @@ Applies only when `mode: "webhook"`.
 
 #### `webhook.local_only`
 **Type**: Boolean | **Default**: `true`
-**Description**: IP filtering for local network security. When enabled, blocks all requests from external/public IPs.
-- `true`: Allow only local networks (192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x) (RECOMMENDED)
+**Description**: IP filtering based on `allowed_networks`. When enabled, blocks requests from IPs not in the allowed list.
+- `true`: Allow only IPs/networks in `allowed_networks` (RECOMMENDED)
 - `false`: Allow all IPs (NOT RECOMMENDED - only use behind authenticated reverse proxy)
 **Blocked IPs**: Returns 403 Forbidden with logged warning
+
+#### `webhook.allowed_networks`
+**Type**: Array of Strings | **Optional**: Yes
+**Description**: List of allowed IP addresses and CIDR ranges. Only used when `local_only: true`.
+**Format**: CIDR notation (`192.168.1.0/24`) or individual IPs (`10.0.0.5`)
+**Default** (if not specified):
+```yaml
+- "127.0.0.0/8"      # Localhost
+- "10.0.0.0/8"       # Private Class A
+- "172.16.0.0/12"    # Private Class B
+- "192.168.0.0/16"   # Private Class C
+- "169.254.0.0/16"   # Link-local
+- "::1/128"          # IPv6 localhost
+- "fe80::/10"        # IPv6 link-local
+```
+**Example** (custom networks):
+```yaml
+allowed_networks:
+  - "192.168.1.0/24"   # Home network
+  - "10.5.0.0/16"      # VPN network
+  - "172.20.0.5"       # Specific server IP
+```
 
 #### `webhook.secret`
 **Type**: String | **Optional**: Yes

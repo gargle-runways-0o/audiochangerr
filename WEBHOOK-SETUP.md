@@ -310,17 +310,47 @@ Audiochangerr implements defense-in-depth security with multiple layers:
 
 ```yaml
 webhook:
-  local_only: true  # Default: blocks external IPs
+  local_only: true  # Default: blocks IPs not in allowed_networks
+
+  # Optional: customize allowed networks (defaults to private ranges)
+  allowed_networks:
+    - "192.168.1.0/24"   # Your home network
+    - "10.0.0.5"         # Specific VPN server
 ```
 
 **What it does:**
-- ✅ Allows local network IPs: 192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x
-- ❌ Blocks all external/public IPs with 403 Forbidden
-- Logs blocked attempts: `[SECURITY] Blocked external webhook from <IP>`
+- ✅ Allows IPs/networks in `allowed_networks` list
+- ✅ Default: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, ::1/128, fe80::/10
+- ✅ Supports CIDR notation and individual IPs
+- ❌ Blocks all IPs not in allowed list with 403 Forbidden
+- 📝 Logs blocked attempts: `[SECURITY] Blocked webhook from <IP> (not in allowed networks)`
+- 📋 Logs allowed networks on startup
 
 **When to disable:**
 - ⚠️ Only if using authenticated reverse proxy (e.g., nginx with basic auth, OAuth)
 - ⚠️ Only if reverse proxy handles IP filtering/authentication
+
+**Customizing allowed networks:**
+```yaml
+# Example: Restrict to specific subnet only
+webhook:
+  local_only: true
+  allowed_networks:
+    - "192.168.1.0/24"   # Only this subnet
+
+# Example: Multiple networks
+webhook:
+  local_only: true
+  allowed_networks:
+    - "192.168.1.0/24"   # Home network
+    - "10.8.0.0/24"      # VPN network
+    - "172.20.0.5"       # Specific server
+
+# Example: Default behavior (all private ranges)
+webhook:
+  local_only: true
+  # allowed_networks not specified = uses defaults
+```
 
 #### Layer 2: Docker Network Isolation
 
@@ -398,8 +428,9 @@ npm start 2>&1 | grep SECURITY
 
 **Log examples:**
 ```
-[info] [SECURITY] Local-only mode: ENABLED (blocking external IPs)
-[warn] [SECURITY] Blocked external webhook from 203.0.113.45
+[info] [SECURITY] Network filtering: ENABLED
+[info] [SECURITY] Allowed networks: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, ::1/128, fe80::/10
+[warn] [SECURITY] Blocked webhook from 203.0.113.45 (not in allowed networks)
 [info] [SECURITY] Webhook authentication: ENABLED
 ```
 
@@ -437,7 +468,7 @@ curl http://192.168.1.50:4444/webhook
 
 # From external IP (should fail with 403)
 curl http://your-public-ip:4444/webhook
-# Expected: {"error":"Forbidden: External access not allowed"}
+# Expected: {"error":"Forbidden: IP not in allowed networks"}
 ```
 
 **Test with Docker:**

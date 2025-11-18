@@ -6,41 +6,70 @@ let server = null;
 let httpServer = null;
 
 /**
- * Checks if an IP address is in a private/local network range
- * Supports IPv4 and IPv6
+ * Converts IPv4 address to 32-bit integer
  */
-function isLocalIP(ip) {
+function ipv4ToInt(ip) {
+    const octets = ip.split('.').map(Number);
+    return ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+}
+
+/**
+ * Checks if an IP matches a CIDR range
+ */
+function matchesCIDR(ip, cidr) {
     // Remove IPv6 prefix if present (e.g., ::ffff:192.168.1.1 -> 192.168.1.1)
     const cleanIP = ip.replace(/^::ffff:/, '');
 
-    // IPv6 loopback and link-local
-    if (cleanIP === '::1' || cleanIP.startsWith('fe80:')) {
-        return true;
+    // Handle IPv6 CIDR (simple prefix matching for common cases)
+    if (cidr.includes(':')) {
+        const [network, prefix] = cidr.split('/');
+        const prefixLen = prefix ? parseInt(prefix) : 128;
+
+        // Simple IPv6 matching for loopback and link-local
+        if (network === '::1' && prefixLen === 128) {
+            return cleanIP === '::1';
+        }
+        if (network.startsWith('fe80:') && prefixLen === 10) {
+            return cleanIP.startsWith('fe80:');
+        }
+        return false;
     }
 
-    // IPv4 localhost
-    if (cleanIP === '127.0.0.1' || cleanIP.startsWith('127.')) {
-        return true;
+    // Handle IPv4 CIDR
+    const [network, prefix] = cidr.split('/');
+    const prefixLen = prefix ? parseInt(prefix) : 32;
+
+    // Check if IP is IPv4
+    const octets = cleanIP.split('.');
+    if (octets.length !== 4) {
+        return false;
     }
 
-    // IPv4 private ranges
-    const octets = cleanIP.split('.').map(Number);
-    if (octets.length === 4) {
-        // 10.0.0.0/8
-        if (octets[0] === 10) {
-            return true;
-        }
-        // 172.16.0.0/12
-        if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) {
-            return true;
-        }
-        // 192.168.0.0/16
-        if (octets[0] === 192 && octets[1] === 168) {
-            return true;
-        }
-        // 169.254.0.0/16 (link-local)
-        if (octets[0] === 169 && octets[1] === 254) {
-            return true;
+    const ipInt = ipv4ToInt(cleanIP);
+    const networkInt = ipv4ToInt(network);
+    const mask = (0xFFFFFFFF << (32 - prefixLen)) >>> 0;
+
+    return (ipInt & mask) === (networkInt & mask);
+}
+
+/**
+ * Checks if an IP address is allowed based on configured networks
+ */
+function isAllowedIP(ip, allowedNetworks) {
+    // Remove IPv6 prefix if present
+    const cleanIP = ip.replace(/^::ffff:/, '');
+
+    for (const network of allowedNetworks) {
+        // Check if network is CIDR or plain IP
+        if (network.includes('/')) {
+            if (matchesCIDR(ip, network)) {
+                return true;
+            }
+        } else {
+            // Plain IP match
+            if (cleanIP === network) {
+                return true;
+            }
         }
     }
 
@@ -150,7 +179,7 @@ function start(config, onWebhook) {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
-    // IP filtering middleware - restrict to local network only
+    // IP filtering middleware - restrict to allowed networks only
     app.use((req, res, next) => {
         // Skip IP filtering for health check endpoint
         if (req.path === '/health') {
@@ -160,9 +189,9 @@ function start(config, onWebhook) {
         // Check if local-only mode is enabled (default: true for security)
         const localOnly = config.webhook.local_only !== false;
 
-        if (localOnly && !isLocalIP(req.ip)) {
-            logger.warn(`[SECURITY] Blocked external webhook from ${req.ip}`);
-            return res.status(403).json({ error: 'Forbidden: External access not allowed' });
+        if (localOnly && !isAllowedIP(req.ip, config.webhook.allowed_networks)) {
+            logger.warn(`[SECURITY] Blocked webhook from ${req.ip} (not in allowed networks)`);
+            return res.status(403).json({ error: 'Forbidden: IP not in allowed networks' });
         }
 
         next();
@@ -254,9 +283,10 @@ function start(config, onWebhook) {
         // Security status
         const localOnly = config.webhook.local_only !== false;
         if (localOnly) {
-            logger.info('[SECURITY] Local-only mode: ENABLED (blocking external IPs)');
+            logger.info('[SECURITY] Network filtering: ENABLED');
+            logger.info(`[SECURITY] Allowed networks: ${config.webhook.allowed_networks.join(', ')}`);
         } else {
-            logger.warn('[SECURITY] Local-only mode: DISABLED (allowing external IPs - NOT RECOMMENDED)');
+            logger.warn('[SECURITY] Network filtering: DISABLED (allowing all IPs - NOT RECOMMENDED)');
         }
 
         if (config.webhook.secret) {

@@ -33,9 +33,21 @@ webhook:
   path: "/webhook"      # Webhook endpoint path
 
   # Security settings
-  local_only: true      # Block external IPs (RECOMMENDED: true)
-                        # true = only allow local network (192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x)
+  local_only: true      # Block IPs not in allowed_networks (RECOMMENDED: true)
+                        # true = only allow IPs/networks in allowed_networks list
                         # false = allow all IPs (NOT RECOMMENDED unless behind firewall/reverse proxy)
+
+  # Optional: Custom allowed networks (defaults to private ranges if not specified)
+  # Supports both CIDR notation and individual IPs
+  # allowed_networks:
+  #   - "192.168.1.0/24"      # Your home network
+  #   - "10.0.0.0/8"          # Private Class A
+  #   - "172.20.0.5"          # Specific IP
+  #   - "::1/128"             # IPv6 localhost
+  # Default (if not specified):
+  #   - 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16
+  #   - ::1/128, fe80::/10
+
   secret: ""            # Optional: require X-Webhook-Secret header (RECOMMENDED for extra security)
 
   # Advanced settings
