@@ -1,100 +1,75 @@
 # Audiochangerr Configuration Example
 # Copy to config.yaml and customize
+# Full reference: CONFIGURATION.md
 
-config_version: 1  # Optional: Config format version (currently v1)
+config_version: 1
 
-# Required: Plex server connection
-plex_server_url: "http://192.168.1.100:32400"  # Your Plex server URL
-plex_token: "YOUR_PLEX_TOKEN_HERE"             # Get from Plex Web XML
-owner_username: "your-plex-username"           # Server owner (processes owner + managed users)
+plex_server_url: "http://192.168.1.100:32400"
+plex_token: "YOUR_PLEX_TOKEN_HERE"
+owner_username: "your-plex-username"
 
-mode: "polling"  # "polling" or "webhook"
-dry_run: true    # true = test mode, false = apply changes
+mode: "polling"
+dry_run: true
+validation_timeout_seconds: 120
 
-validation_timeout_seconds: 120  # Time to wait for session restart validation
-
-# Console Logging (required)
-# Configure what appears in console/terminal output
+# Console output (required)
 console:
-  enabled: true              # Enable console output (true/false)
-  level: "info"              # Console log level: error, warn, info, debug
+  enabled: true
+  level: "info"
 
-# File Logging (optional)
-# Outputs logs to files with automatic rotation
-# Disabled by default - logs go to console only
+# File logging (optional, disabled by default)
 # logging:
-#   enabled: true              # Enable file logging
-#   directory: "/logs"         # Log directory (created if missing)
-#   max_size: "20m"            # Max file size before rotation (e.g., 20m, 100k, 1g)
-#   max_files: "14d"           # Retention: "14d" = 14 days, "10" = 10 files
-#   level: "info"              # File log level: error, warn, info, debug
+#   enabled: true
+#   directory: "/logs"
+#   max_size: "20m"
+#   max_files: "14d"
+#   level: "info"
 
-# Polling mode (only used when mode: "polling")
-check_interval: 10  # Seconds between checks
+# Polling mode settings
+check_interval: 10
 
-# Webhook mode (only used when mode: "webhook")
+# Webhook mode settings
 webhook:
-  port: 4444            # HTTP server port
-  host: "0.0.0.0"       # Bind address (0.0.0.0 = all interfaces)
-  path: "/webhook"      # Webhook endpoint path
-
-  # Security settings
-  local_only: true      # Block IPs not in allowed_networks (RECOMMENDED: true)
-                        # true = only allow IPs/networks in allowed_networks list (REQUIRED: must specify allowed_networks)
-                        # false = allow all IPs (NOT RECOMMENDED unless behind firewall/reverse proxy)
-
-  # REQUIRED when local_only: true - Specify allowed IP addresses and networks
-  # Supports both CIDR notation and individual IPs
+  port: 4444
+  host: "0.0.0.0"
+  path: "/webhook"
+  local_only: true
   allowed_networks:
-    - "127.0.0.0/8"         # Localhost
-    - "192.168.0.0/16"      # Private Class C (adjust to your home network, e.g., 192.168.1.0/24)
-    - "10.0.0.0/8"          # Private Class A (adjust if using different subnet)
-    - "172.16.0.0/12"       # Private Class B (adjust if using different subnet)
-    - "::1/128"             # IPv6 localhost
-  # Examples:
-  #   - "192.168.1.0/24"    # Specific home subnet
-  #   - "10.8.0.0/24"       # VPN network
-  #   - "172.20.0.5"        # Specific server IP
-  #   - "fe80::/10"         # IPv6 link-local
+    - "127.0.0.0/8"
+    - "192.168.0.0/16"
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "::1/128"
+  secret: ""
+  initial_delay_ms: 0
+  session_retry:
+    max_attempts: 3
+    initial_delay_ms: 500
 
-  secret: ""            # Optional: require X-Webhook-Secret header (RECOMMENDED for extra security)
-
-  # Advanced settings
-  initial_delay_ms: 0   # Optional: delay before first session lookup
-  session_retry:        # Optional: retry if session not found immediately
-    max_attempts: 3           # Number of lookup attempts
-    initial_delay_ms: 500     # Base delay for exponential backoff
-
-# Audio selection rules (processed top to bottom, first match wins)
+# Audio selection (top to bottom, first match wins)
 audio_selector:
-  # Example 1: Prefer AC3 5.1 in original language, exclude commentary
+  # AC3 5.1 original language, no commentary
   - codec: "ac3"
     channels: 6
     language: "original"
     keywords_exclude: ["Commentary", "Director"]
 
-  # Example 2: Fallback to AAC stereo in original language
+  # AAC stereo fallback
   - codec: "aac"
     channels: 2
     language: "original"
 
-  # Example 3: DTS-HD Master Audio (if available)
+  # DTS-HD Master Audio
   - codec: "dts-hd"
     channels: 6
     language: "original"
     keywords_include: ["MA", "Master"]
 
-  # Example 4: English AC3 5.1 as secondary choice
+  # English AC3 5.1
   - codec: "ac3"
     channels: 6
     language: "eng"
 
-  # Example 5: Any compatible stereo track
-  - channels: 2
-
-# Rule options:
-# - codec: aac, ac3, eac3, dts, dts-hd, truehd, flac, mp3, opus, vorbis, pcm
-# - channels: minimum 1-8 (>= match, e.g., 6 matches 6ch or 8ch)
-# - language: "original" or ISO 639-2/3 code (eng, jpn, spa, fre, ger, etc.)
-# - keywords_include: Array of keywords (must match ANY)
-# - keywords_exclude: Array of keywords (must match NONE)
+  # Any stereo track
+  - codec: "aac"
+    channels: 2
