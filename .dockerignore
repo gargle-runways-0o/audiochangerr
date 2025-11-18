@@ -2,8 +2,8 @@ node_modules/
 .github/
 config/
 logs/
-config.yaml
-config.yaml.example
+*.yaml
+*.yaml.example
 npm-debug.log
 Dockerfile
 .dockerignore
