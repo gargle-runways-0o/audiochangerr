@@ -96,6 +96,8 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
 
         logger.info(`Switched to ${bestStream.id}, awaiting validation`);
     } else {
+        logger.debug(`Skip transcode kill: ${session.TranscodeSession.key}`);
+        logger.debug(`Skip session kill: ${session.Session.id}`);
         logger.info(`Stream set: ${bestStream.id}`);
     }
 

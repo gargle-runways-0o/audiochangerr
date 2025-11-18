@@ -92,6 +92,9 @@ function loadConfig() {
     if (typeof config.terminate_stream !== 'boolean') {
         throw new Error(`terminate_stream must be boolean (got: ${config.terminate_stream})`);
     }
+    if (!config.terminate_stream) {
+        logger.warn('Terminate: disabled');
+    }
 
     // Check interval required for polling mode
     if (config.mode === 'polling') {
