@@ -12,12 +12,12 @@ function findTranscodes(sessions) {
 }
 
 function startPollingMode() {
-    logger.info(`Starting POLLING (interval: ${config.check_interval}s)`);
+    logger.info(`Polling: ${config.check_interval}s`);
 
     setInterval(async () => {
         try {
             const sessions = await plexClient.fetchSessions();
-            logger.info(`Active sessions: ${sessions.length}`);
+            logger.info(`Sessions: ${sessions.length}`);
 
             const transcodeSessions = findTranscodes(sessions);
             const newTranscodes = transcodeSessions.filter(s => !audioFixer.isProcessed(s.ratingKey));
@@ -30,9 +30,8 @@ function startPollingMode() {
                             audioFixer.markAsProcessed(session.ratingKey);
                         }
                     } catch (error) {
-                        logger.error(`Failed to process session ${session.ratingKey}: ${error.message}`);
+                        logger.error(`Process: ${session.ratingKey} ${error.message}`);
                         logger.debug(error.stack);
-                        // Continue processing other sessions
                     }
                 }
             }
@@ -40,38 +39,35 @@ function startPollingMode() {
             audioFixer.cleanupProcessedMedia(sessions);
 
         } catch (error) {
-            logger.error(`Polling cycle failed: ${error.message}`);
+            logger.error(`Polling: ${error.message}`);
             logger.debug(error.stack);
-            // Interval continues, will retry next cycle
         }
     }, config.check_interval * 1000);
 }
 
 function startWebhookMode() {
     if (config.webhook.enabled === false) {
-        logger.error('Webhook mode selected but webhook.enabled is false');
+        logger.error('Webhook disabled in config');
         throw new Error('webhook.enabled must be true for webhook mode');
     }
 
-    logger.info('Starting WEBHOOK');
+    logger.info('Webhook mode');
     logger.info(`Endpoint: http://${config.webhook.host}:${config.webhook.port}${config.webhook.path}`);
 
     const handleWebhook = async (payload) => {
         await webhookProcessor.processWebhook(payload, config);
     };
 
-    // Remove try/catch - let errors propagate to main()
     webhookServer.start(config, handleWebhook);
-    logger.info('Webhook started');
-    logger.info('Configure: Plex Web → Account → Webhooks');
+    logger.info('Started');
+    logger.info('Setup: Plex → Account → Webhooks');
 
-    // Session cleanup interval
     setInterval(async () => {
         try {
             const sessions = await plexClient.fetchSessions();
             audioFixer.cleanupProcessedMedia(sessions);
         } catch (error) {
-            logger.error(`Cleanup error: ${error.message}`);
+            logger.error(`Cleanup: ${error.message}`);
             logger.debug(error.stack);
         }
     }, 60000);
@@ -80,23 +76,20 @@ function startWebhookMode() {
 async function main() {
     try {
         config = loadConfig();
-        logger.info('Config loaded');
+        logger.info('Config: loaded');
 
-        // Configure console logging (required)
         logger.configureConsoleLogging(config.console);
 
-        // Configure file logging if enabled in config
         if (config.logging) {
             logger.configureFileLogging(config.logging);
         }
 
         logger.info(`Mode: ${config.mode}`);
-        logger.info(`Dry run: ${config.dry_run ? 'ENABLED' : 'DISABLED'}`);
+        logger.info(`Dry run: ${config.dry_run ? 'yes' : 'no'}`);
 
         plexClient.init(config);
-        logger.info('Plex initialized');
+        logger.info('Plex: ready');
 
-        // Set validation timeout from config
         audioFixer.setValidationTimeout(config.validation_timeout_seconds);
 
         if (config.mode === 'webhook') {
@@ -107,23 +100,23 @@ async function main() {
             throw new Error(`Invalid mode: ${config.mode} (must be 'webhook' or 'polling')`);
         }
 
-        logger.info('Audiochangerr running');
+        logger.info('Running');
 
     } catch (error) {
-        logger.error(`Start failed: ${error.message}`);
+        logger.error(`Start: ${error.message}`);
         logger.debug(error.stack);
         process.exit(1);
     }
 }
 
 process.on('SIGINT', () => {
-    logger.info('SIGINT - shutting down');
+    logger.info('SIGINT');
     webhookServer.stop();
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-    logger.info('SIGTERM - shutting down');
+    logger.info('SIGTERM');
     webhookServer.stop();
     process.exit(0);
 });

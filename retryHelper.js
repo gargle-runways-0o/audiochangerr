@@ -8,12 +8,12 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelayMs = 1000, opera
             const isLastAttempt = attempt === maxRetries - 1;
 
             if (isLastAttempt) {
-                logger.error(`${operationName} failed after ${maxRetries} attempts: ${error.message}`);
+                logger.error(`${operationName}: ${maxRetries} attempts failed: ${error.message}`);
                 throw error;
             }
 
             const delayMs = initialDelayMs * Math.pow(2, attempt);
-            logger.warn(`${operationName} failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delayMs}ms: ${error.message}`);
+            logger.warn(`${operationName}: retry ${attempt + 1}/${maxRetries} in ${delayMs}ms: ${error.message}`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
     }

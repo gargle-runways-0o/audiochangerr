@@ -16,61 +16,53 @@ function validateSessionRestart(session, processingInfo) {
     const ratingKey = session.ratingKey;
     const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
 
-    // Check if this is a new session (different sessionKey)
     if (String(session.sessionKey) === String(processingInfo.originalSessionKey)) {
-        logger.debug(`Same session key, waiting for restart: ${session.sessionKey}`);
-        return null; // Still the old session, not restarted yet
+        logger.debug(`Same session: ${session.sessionKey}`);
+        return null;
     }
 
-    logger.info(`Session restarted: media ${ratingKey}, validating...`);
+    logger.info(`Restarted: ${ratingKey}`);
 
-    // Check if still transcoding
     if (session.TranscodeSession) {
-        logger.warn(`Still transcoding after audio switch - incompatible codec or client limitation`);
-        logger.debug(`TranscodeSession: ${JSON.stringify(session.TranscodeSession, null, 2)}`);
-        return false; // We tried, but it's still transcoding
+        logger.warn('Still transcoding (incompatible codec/client)');
+        return false;
     }
 
-    // Check if correct audio stream is selected
     const streams = getStreamsFromSession(session);
     const activeStream = streams.find(s => s.streamType === 2 && s.selected);
 
     if (activeStream && String(activeStream.id) === String(processingInfo.expectedStreamId)) {
-        logger.info(`✓ Validated: direct play with correct audio stream ${processingInfo.expectedStreamId}`);
+        logger.info(`Direct play: stream ${processingInfo.expectedStreamId}`);
         return true;
     } else {
-        logger.warn(`Wrong audio stream: got ${activeStream?.id}, expected ${processingInfo.expectedStreamId}`);
+        logger.warn(`Wrong stream: ${activeStream?.id} (want ${processingInfo.expectedStreamId})`);
         return false;
     }
 }
 
-/**
- * Sets the validation timeout from config (required)
- */
 function setValidationTimeout(timeoutSeconds) {
     if (!timeoutSeconds || typeof timeoutSeconds !== 'number' || timeoutSeconds <= 0) {
         throw new Error(`setValidationTimeout requires a positive number (got: ${timeoutSeconds})`);
     }
     validationTimeoutMs = timeoutSeconds * 1000;
-    logger.info(`Validation timeout: ${timeoutSeconds}s`);
+    logger.info(`Validation: ${timeoutSeconds}s`);
 }
 
 async function resolveUserToken(session, config) {
     const sessionUsername = session.User.title;
     const managedUserTokens = await plexClient.fetchManagedUserTokens();
-    logger.debug(`User: ${JSON.stringify(session.User, null, 2)}`);
 
     if (sessionUsername === config.owner_username) {
-        logger.debug(`Owner (${sessionUsername}): using owner token`);
+        logger.debug(`Owner: ${sessionUsername}`);
         return config.plex_token;
     }
 
     if (managedUserTokens[session.User.id]) {
-        logger.debug(`Managed user ${session.User.id}: using fetched token`);
+        logger.debug(`Managed: ${session.User.id}`);
         return managedUserTokens[session.User.id];
     }
 
-    logger.warn(`User '${sessionUsername}' (${session.User.id}): not owner or managed, skipping`);
+    logger.warn(`Not owner/managed: ${sessionUsername} (${session.User.id})`);
     return null;
 }
 
@@ -79,19 +71,18 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
     await plexClient.setSelectedAudioStream(partId, bestStream.id, userToken, config.dry_run);
 
     if (config.dry_run) {
-        logger.info(`[DRY RUN] Terminate transcode: ${session.TranscodeSession.key}`);
-        logger.info(`[DRY RUN] Terminate session: ${session.Session.id}`);
+        logger.info(`[DRY] Kill transcode: ${session.TranscodeSession.key}`);
+        logger.info(`[DRY] Kill session: ${session.Session.id}`);
         return true;
     }
 
     await plexClient.terminateTranscode(session.TranscodeSession.key);
-    logger.info(`Terminated transcode: ${session.TranscodeSession.key}`);
+    logger.info(`Kill transcode: ${session.TranscodeSession.key}`);
 
     const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
     await plexClient.terminateSession(session.Session.id, reason);
-    logger.info(`Terminated session: ${session.Session.id}`);
+    logger.info(`Kill session: ${session.Session.id}`);
 
-    // Mark as processed with metadata for event-driven validation
     const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
     const processingKey = `${session.ratingKey}:${playerUuid}`;
     processedMedia.set(processingKey, {
@@ -102,20 +93,20 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
         originalSessionKey: session.sessionKey
     });
 
-    logger.info(`Audio switched to stream ${bestStream.id}, waiting for webhook to validate restart...`);
+    logger.info(`Switched to ${bestStream.id}, awaiting validation`);
     return true;
 }
 
 async function processTranscodingSession(session, config) {
     try {
-        logger.info(`Transcode: ${session.Player.title} on ${session.Player.device}, user ${session.User.title}`);
+        logger.info(`Player: ${session.Player.title} (${session.Player.device}) user: ${session.User.title}`);
 
         const mediaInfo = await plexClient.fetchMetadata(session.ratingKey);
         const streams = getStreamsFromSession(session);
         const currentStream = streams.find(s => s.streamType === 2 && s.selected);
 
         if (!currentStream) {
-            logger.warn(`No current audio stream: ${session.Player.title}`);
+            logger.warn('No audio stream');
             return false;
         }
 
@@ -126,11 +117,11 @@ async function processTranscodingSession(session, config) {
         );
 
         if (!bestStream) {
-            logger.warn(`No better stream: ${session.Player.title}`);
+            logger.warn('No better stream');
             return false;
         }
 
-        logger.info(`Better stream: ${bestStream.codec.toUpperCase()} ${bestStream.channels}ch (ID: ${bestStream.id})`);
+        logger.info(`Better: ${bestStream.codec.toUpperCase()} ${bestStream.channels}ch (${bestStream.id})`);
 
         const userToken = await resolveUserToken(session, config);
         if (!userToken) {
@@ -140,12 +131,12 @@ async function processTranscodingSession(session, config) {
         try {
             return await switchToStreamAndRestart(session, bestStream, userToken, config);
         } catch (error) {
-            logger.error(`Fix failed: ${error.message}`);
+            logger.error(`Fix: ${error.message}`);
             return false;
         }
 
     } catch (error) {
-        logger.error(`Processing error: ${error.message}`);
+        logger.error(`Process: ${error.message}`);
         logger.debug(error.stack);
         return false;
     }
@@ -167,9 +158,8 @@ function cleanupProcessedMedia(currentSessions) {
     for (const [processingKey, processingInfo] of processedMedia.entries()) {
         const age = now - processingInfo.timestamp;
 
-        // Remove if not in current sessions AND validation timeout has expired
         if (!currentSessionKeys.has(processingKey) && age > validationTimeoutMs) {
-            logger.debug(`Cleanup: ${processingKey} (age: ${Math.round(age / 1000)}s, expired)`);
+            logger.debug(`Cleanup: ${processingKey} (${Math.round(age / 1000)}s)`);
             processedMedia.delete(processingKey);
         }
     }
@@ -189,9 +179,8 @@ function getProcessingInfo(ratingKey, playerUuid) {
 
     const age = Date.now() - processingInfo.timestamp;
 
-    // Check if validation timeout has expired
     if (age > validationTimeoutMs) {
-        logger.debug(`Validation timeout expired for ${processingKey} (age: ${Math.round(age / 1000)}s)`);
+        logger.debug(`Timeout: ${processingKey} (${Math.round(age / 1000)}s)`);
         processedMedia.delete(processingKey);
         return null;
     }
@@ -202,7 +191,7 @@ function getProcessingInfo(ratingKey, playerUuid) {
 function clearProcessingInfo(ratingKey, playerUuid) {
     const processingKey = `${ratingKey}:${playerUuid}`;
     processedMedia.delete(processingKey);
-    logger.debug(`Cleared processing info: ${processingKey}`);
+    logger.debug(`Clear: ${processingKey}`);
 }
 
 function isProcessed(ratingKey) {
@@ -222,10 +211,6 @@ function isProcessed(ratingKey) {
     return false;
 }
 
-/**
- * Simple mark as processed (for polling mode or when validation not needed)
- * Creates a minimal processing entry without expecting webhook validation
- */
 function markAsProcessed(ratingKey, playerUuid = 'polling') {
     const processingKey = `${ratingKey}:${playerUuid}`;
     processedMedia.set(processingKey, {
@@ -235,7 +220,7 @@ function markAsProcessed(ratingKey, playerUuid = 'polling') {
         expectedStreamId: null,
         originalSessionKey: null
     });
-    logger.debug(`Marked as processed: ${processingKey}`);
+    logger.debug(`Mark: ${processingKey}`);
 }
 
 module.exports = {

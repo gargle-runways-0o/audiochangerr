@@ -78,12 +78,12 @@ function isAllowedIP(ip, allowedNetworks) {
 
 function validateWebhookSecret(req, config) {
     if (!config.webhook.secret) {
-        return true;  // No secret configured, skip validation
+        return true;
     }
 
     const providedSecret = req.headers['x-webhook-secret'];
     if (!providedSecret || providedSecret !== config.webhook.secret) {
-        logger.warn(`Invalid webhook secret from ${req.ip}`);
+        logger.warn(`Invalid secret: ${req.ip}`);
         return false;
     }
 
@@ -109,22 +109,12 @@ function mapTautulliEvent(eventName) {
  * Tautulli sends different payload structure, we need to convert it
  */
 function normalizeTautulliPayload(body) {
-    // Check if already in Plex-compatible format (nested structure)
     if (body.event && body.Account && body.Player && body.Metadata) {
-        logger.debug(`[TAUTULLI] Payload already in Plex-compatible format`);
-        // Already normalized, just add source tag
         return {
             ...body,
             _source: 'tautulli'
         };
     }
-
-    // Otherwise, normalize simple flat format:
-    // - event_type, action
-    // - rating_key
-    // - user, username
-    // - player, machine_id
-    // - title, media_type
 
     const event = body.event_type || body.action;
     const ratingKey = body.rating_key || body.ratingKey;
@@ -133,7 +123,7 @@ function normalizeTautulliPayload(body) {
     const mediaType = body.media_type || body.type;
     const title = body.title;
 
-    logger.debug(`[TAUTULLI] Normalizing simple format: event=${event}, ratingKey=${ratingKey}, user=${username}, player=${playerUuid}`);
+    logger.debug(`Tautulli: event=${event} key=${ratingKey} user=${username} player=${playerUuid}`);
 
     return {
         event: mapTautulliEvent(event),
@@ -168,7 +158,7 @@ function isTautulliPayload(body) {
 
 function start(config, onWebhook) {
     if (httpServer) {
-        logger.warn('Server already running');
+        logger.warn('Already running');
         return;
     }
 
@@ -190,16 +180,15 @@ function start(config, onWebhook) {
         const localOnly = config.webhook.local_only !== false;
 
         if (localOnly && !isAllowedIP(req.ip, config.webhook.allowed_networks)) {
-            logger.warn(`[SECURITY] Blocked webhook from ${req.ip} (not in allowed networks)`);
+            logger.warn(`Blocked: ${req.ip}`);
             return res.status(403).json({ error: 'Forbidden: IP not in allowed networks' });
         }
 
         next();
     });
 
-    // Log all incoming requests for debugging
     app.use((req, res, next) => {
-        logger.debug(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
+        logger.debug(`${req.method} ${req.path} ${req.ip}`);
         next();
     });
 
@@ -209,33 +198,20 @@ function start(config, onWebhook) {
 
     app.post(config.webhook.path, upload.single('thumb'), (req, res) => {
         try {
-            logger.debug(`[WEBHOOK REQUEST] Method: ${req.method}, Path: ${req.path}, IP: ${req.ip}`);
-            logger.debug(`[WEBHOOK REQUEST] Headers: ${JSON.stringify(req.headers, null, 2)}`);
-            logger.debug(`[WEBHOOK REQUEST] Body keys: ${Object.keys(req.body).join(', ')}`);
-
-            // Validate webhook secret if configured
             if (!validateWebhookSecret(req, config)) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
             let payload;
 
-            // Check if this is a Tautulli webhook
             if (isTautulliPayload(req.body)) {
-                logger.debug('[WEBHOOK] Detected Tautulli payload format');
-                logger.debug(`[WEBHOOK] Raw Tautulli body: ${JSON.stringify(req.body, null, 2)}`);
-
                 payload = normalizeTautulliPayload(req.body);
-                logger.info(`Webhook (Tautulli): event=${payload.event}, user=${payload.Account?.title}, ratingKey=${payload.Metadata?.ratingKey}`);
-            }
-            // Otherwise, try Plex format (multipart with payload field)
-            else {
-                logger.debug('[WEBHOOK] Detected Plex payload format');
+                logger.info(`Tautulli: ${payload.event} ${payload.Account?.title} ${payload.Metadata?.ratingKey}`);
+            } else {
                 const payloadJson = req.body.payload;
 
                 if (!payloadJson) {
-                    logger.error('Missing payload field (not Plex or Tautulli format)');
-                    logger.error(`[WEBHOOK REQUEST] Full body: ${JSON.stringify(req.body, null, 2)}`);
+                    logger.error(`Missing payload: ${Object.keys(req.body).join(', ')}`);
                     return res.status(400).json({ error: 'Missing payload field or unrecognized format' });
                 }
 
@@ -243,31 +219,24 @@ function start(config, onWebhook) {
                     payload = JSON.parse(payloadJson);
                     payload._source = 'plex';
                 } catch (error) {
-                    logger.error(`Parse failed: ${error.message}`);
-                    logger.error(`[WEBHOOK REQUEST] Raw payload: ${payloadJson.substring(0, 500)}`);
+                    logger.error(`Parse: ${error.message}`);
                     return res.status(400).json({ error: 'Invalid JSON payload' });
                 }
 
-                logger.info(`Webhook (Plex): event=${payload.event}, user=${payload.Account?.title}`);
-            }
-
-            logger.debug(`Payload: ${JSON.stringify(payload, null, 2)}`);
-
-            if (req.file) {
-                logger.debug(`Thumbnail (${req.file.size}b) - discarding`);
+                logger.info(`Plex: ${payload.event} ${payload.Account?.title}`);
             }
 
             res.status(200).json({ status: 'received', source: payload._source });
 
             if (onWebhook) {
                 onWebhook(payload).catch(error => {
-                    logger.error(`Processing error: ${error.message}`);
+                    logger.error(`Process: ${error.message}`);
                 });
             }
 
         } catch (error) {
-            logger.error(`Handler error: ${error.message}`);
-            logger.error(`Stack: ${error.stack}`);
+            logger.error(`Handler: ${error.message}`);
+            logger.debug(error.stack);
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -276,31 +245,29 @@ function start(config, onWebhook) {
     const host = config.webhook.host;
 
     httpServer = app.listen(port, host, () => {
-        logger.info(`Listening: ${host}:${port}${config.webhook.path}`);
+        logger.info(`Listen: ${host}:${port}${config.webhook.path}`);
         logger.info(`Health: http://${host}:${port}/health`);
-        logger.info('Supported webhook sources: Plex, Tautulli');
+        logger.info('Sources: Plex, Tautulli');
 
-        // Security status
         const localOnly = config.webhook.local_only !== false;
         if (localOnly) {
-            logger.info('[SECURITY] Network filtering: ENABLED');
-            logger.info(`[SECURITY] Allowed networks: ${config.webhook.allowed_networks.join(', ')}`);
+            logger.info(`Networks: ${config.webhook.allowed_networks.join(', ')}`);
         } else {
-            logger.warn('[SECURITY] Network filtering: DISABLED (allowing all IPs - NOT RECOMMENDED)');
+            logger.warn('Networks: ALL (not recommended)');
         }
 
         if (config.webhook.secret) {
-            logger.info('[SECURITY] Webhook authentication: ENABLED');
+            logger.info('Auth: enabled');
         } else {
-            logger.warn('[SECURITY] Webhook authentication: DISABLED (consider setting webhook.secret)');
+            logger.warn('Auth: disabled');
         }
     });
 
     httpServer.on('error', (error) => {
         if (error.code === 'EADDRINUSE') {
-            logger.error(`Port ${port} in use`);
+            logger.error(`Port in use: ${port}`);
         } else {
-            logger.error(`Server error: ${error.message}`);
+            logger.error(`Server: ${error.message}`);
         }
         throw error;
     });
@@ -310,7 +277,7 @@ function start(config, onWebhook) {
 
 function stop() {
     if (httpServer) {
-        logger.info('Stopping server');
+        logger.info('Stopping');
         httpServer.close(() => {
             logger.info('Stopped');
         });
