@@ -31,7 +31,14 @@ webhook:
   port: 4444            # HTTP server port
   host: "0.0.0.0"       # Bind address (0.0.0.0 = all interfaces)
   path: "/webhook"      # Webhook endpoint path
-  secret: ""            # Optional: require X-Webhook-Secret header
+
+  # Security settings
+  local_only: true      # Block external IPs (RECOMMENDED: true)
+                        # true = only allow local network (192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x)
+                        # false = allow all IPs (NOT RECOMMENDED unless behind firewall/reverse proxy)
+  secret: ""            # Optional: require X-Webhook-Secret header (RECOMMENDED for extra security)
+
+  # Advanced settings
   initial_delay_ms: 0   # Optional: delay before first session lookup
   session_retry:        # Optional: retry if session not found immediately
     max_attempts: 3           # Number of lookup attempts

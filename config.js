@@ -119,6 +119,14 @@ function loadConfig() {
         // Optional webhook secret
         config.webhook.secret = config.webhook.secret || '';
 
+        // Optional local_only mode (defaults to true for security)
+        if (config.webhook.local_only === undefined) {
+            config.webhook.local_only = true;
+        }
+        if (typeof config.webhook.local_only !== 'boolean') {
+            throw new Error('webhook.local_only must be boolean');
+        }
+
         // Optional initial delay before session lookup
         if (config.webhook.initial_delay_ms !== undefined) {
             if (typeof config.webhook.initial_delay_ms !== 'number' || config.webhook.initial_delay_ms < 0) {

@@ -5,6 +5,48 @@ const logger = require('./logger');
 let server = null;
 let httpServer = null;
 
+/**
+ * Checks if an IP address is in a private/local network range
+ * Supports IPv4 and IPv6
+ */
+function isLocalIP(ip) {
+    // Remove IPv6 prefix if present (e.g., ::ffff:192.168.1.1 -> 192.168.1.1)
+    const cleanIP = ip.replace(/^::ffff:/, '');
+
+    // IPv6 loopback and link-local
+    if (cleanIP === '::1' || cleanIP.startsWith('fe80:')) {
+        return true;
+    }
+
+    // IPv4 localhost
+    if (cleanIP === '127.0.0.1' || cleanIP.startsWith('127.')) {
+        return true;
+    }
+
+    // IPv4 private ranges
+    const octets = cleanIP.split('.').map(Number);
+    if (octets.length === 4) {
+        // 10.0.0.0/8
+        if (octets[0] === 10) {
+            return true;
+        }
+        // 172.16.0.0/12
+        if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) {
+            return true;
+        }
+        // 192.168.0.0/16
+        if (octets[0] === 192 && octets[1] === 168) {
+            return true;
+        }
+        // 169.254.0.0/16 (link-local)
+        if (octets[0] === 169 && octets[1] === 254) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function validateWebhookSecret(req, config) {
     if (!config.webhook.secret) {
         return true;  // No secret configured, skip validation
@@ -108,6 +150,24 @@ function start(config, onWebhook) {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
+    // IP filtering middleware - restrict to local network only
+    app.use((req, res, next) => {
+        // Skip IP filtering for health check endpoint
+        if (req.path === '/health') {
+            return next();
+        }
+
+        // Check if local-only mode is enabled (default: true for security)
+        const localOnly = config.webhook.local_only !== false;
+
+        if (localOnly && !isLocalIP(req.ip)) {
+            logger.warn(`[SECURITY] Blocked external webhook from ${req.ip}`);
+            return res.status(403).json({ error: 'Forbidden: External access not allowed' });
+        }
+
+        next();
+    });
+
     // Log all incoming requests for debugging
     app.use((req, res, next) => {
         logger.debug(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
@@ -190,10 +250,19 @@ function start(config, onWebhook) {
         logger.info(`Listening: ${host}:${port}${config.webhook.path}`);
         logger.info(`Health: http://${host}:${port}/health`);
         logger.info('Supported webhook sources: Plex, Tautulli');
-        if (config.webhook.secret) {
-            logger.info('Webhook authentication: ENABLED');
+
+        // Security status
+        const localOnly = config.webhook.local_only !== false;
+        if (localOnly) {
+            logger.info('[SECURITY] Local-only mode: ENABLED (blocking external IPs)');
         } else {
-            logger.warn('Webhook authentication: DISABLED (consider setting webhook.secret)');
+            logger.warn('[SECURITY] Local-only mode: DISABLED (allowing external IPs - NOT RECOMMENDED)');
+        }
+
+        if (config.webhook.secret) {
+            logger.info('[SECURITY] Webhook authentication: ENABLED');
+        } else {
+            logger.warn('[SECURITY] Webhook authentication: DISABLED (consider setting webhook.secret)');
         }
     });
 

@@ -300,12 +300,156 @@ webhook:
 
 ## Security
 
-**Private server**: No authentication needed.
+### Multi-Layered Security Approach (Recommended)
 
-**Public deployment**:
-- Use reverse proxy with authentication
-- Enable HTTPS
-- Restrict firewall to Plex server IPs
+Audiochangerr implements defense-in-depth security with multiple layers:
+
+#### Layer 1: Application-Level IP Filtering (Default: Enabled)
+
+**Automatic protection against external access:**
+
+```yaml
+webhook:
+  local_only: true  # Default: blocks external IPs
+```
+
+**What it does:**
+- ✅ Allows local network IPs: 192.168.x.x, 10.x.x.x, 172.16-31.x.x, 127.x.x.x
+- ❌ Blocks all external/public IPs with 403 Forbidden
+- Logs blocked attempts: `[SECURITY] Blocked external webhook from <IP>`
+
+**When to disable:**
+- ⚠️ Only if using authenticated reverse proxy (e.g., nginx with basic auth, OAuth)
+- ⚠️ Only if reverse proxy handles IP filtering/authentication
+
+#### Layer 2: Docker Network Isolation
+
+**Bind to specific network interface:**
+
+```bash
+# Option A: Localhost only (most secure, requires reverse proxy)
+docker run -p 127.0.0.1:4444:4444 audiochangerr
+
+# Option B: Specific local IP (recommended for LAN access)
+docker run -p 192.168.1.50:4444:4444 audiochangerr
+
+# Option C: All interfaces (relies on app-level filtering)
+docker run -p 4444:4444 audiochangerr  # or -p 0.0.0.0:4444:4444
+```
+
+**Recommendation:** Use Option B (specific IP) for best balance of security and accessibility.
+
+#### Layer 3: Firewall Rules (Defense in Depth)
+
+**Restrict at OS level:**
+
+```bash
+# UFW (Ubuntu/Debian)
+sudo ufw allow from 192.168.1.0/24 to any port 4444 proto tcp
+sudo ufw deny 4444/tcp
+
+# iptables
+sudo iptables -A INPUT -p tcp --dport 4444 -s 192.168.1.0/24 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 4444 -j DROP
+
+# Make iptables persistent (Ubuntu/Debian)
+sudo apt-get install iptables-persistent
+sudo netfilter-persistent save
+```
+
+**Adjust subnet:** Replace `192.168.1.0/24` with your network (e.g., `10.0.0.0/8`, `172.16.0.0/12`)
+
+#### Layer 4: Authentication (Optional, Additional Layer)
+
+**Webhook secret for request validation:**
+
+```yaml
+webhook:
+  secret: "your-secure-random-string-here"
+```
+
+**How to use:**
+1. Generate secure random string: `openssl rand -base64 32`
+2. Add to config.yaml
+3. Configure Plex/Tautulli to send `X-Webhook-Secret: your-secret` header
+
+**Plex:** Does not support custom headers (use other layers)
+**Tautulli:** Add custom header in webhook configuration
+
+### Security Levels
+
+| Level | Configuration | Use Case |
+|-------|---------------|----------|
+| **High** (recommended) | `local_only: true` + Docker IP binding + Firewall | Home networks, general use |
+| **Medium** | `local_only: true` + webhook secret | Home networks without firewall access |
+| **Low** (not recommended) | `local_only: false` | Only behind authenticated reverse proxy |
+
+### Security Monitoring
+
+**Check logs for blocked attempts:**
+
+```bash
+# Docker
+docker logs audiochangerr | grep SECURITY
+
+# Standalone
+npm start 2>&1 | grep SECURITY
+```
+
+**Log examples:**
+```
+[info] [SECURITY] Local-only mode: ENABLED (blocking external IPs)
+[warn] [SECURITY] Blocked external webhook from 203.0.113.45
+[info] [SECURITY] Webhook authentication: ENABLED
+```
+
+### Public Deployment (Advanced)
+
+**If you must expose webhooks publicly** (generally NOT recommended):
+
+1. **Use reverse proxy with authentication:**
+   ```nginx
+   location /webhook {
+       auth_basic "Restricted";
+       auth_basic_user_file /etc/nginx/.htpasswd;
+       proxy_pass http://localhost:4444/webhook;
+   }
+   ```
+
+2. **Disable app-level filtering** (proxy handles it):
+   ```yaml
+   webhook:
+     host: "127.0.0.1"
+     local_only: false
+   ```
+
+3. **Enable HTTPS** (required for public exposure)
+
+4. **Set webhook secret** for additional validation
+
+### Network Testing
+
+**Verify local-only mode is working:**
+
+```bash
+# From local machine (should succeed)
+curl http://192.168.1.50:4444/webhook
+
+# From external IP (should fail with 403)
+curl http://your-public-ip:4444/webhook
+# Expected: {"error":"Forbidden: External access not allowed"}
+```
+
+**Test with Docker:**
+```bash
+# Check container network binding
+docker port audiochangerr
+
+# Should show:
+# 4444/tcp -> 192.168.1.50:4444  (secure)
+# NOT:
+# 4444/tcp -> 0.0.0.0:4444  (exposed to all interfaces)
+```
 
 ## Performance
 
