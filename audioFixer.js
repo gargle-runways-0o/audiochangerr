@@ -15,10 +15,31 @@ let validationTimeoutMs = null; // Must be set from config via setValidationTime
 function validateSessionRestart(session, processingInfo) {
     const ratingKey = session.ratingKey;
     const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
+    const sameSession = String(session.sessionKey) === String(processingInfo.originalSessionKey);
 
-    if (String(session.sessionKey) === String(processingInfo.originalSessionKey)) {
-        logger.debug(`Same session: ${session.sessionKey}`);
-        return null;
+    if (sameSession) {
+        if (processingInfo.terminated) {
+            logger.debug(`Same session: ${session.sessionKey}`);
+            return null;
+        } else {
+            logger.info(`In-place switch: ${ratingKey}`);
+
+            if (session.TranscodeSession) {
+                logger.warn('Still transcoding - switch too slow or client rejected stream');
+                return false;
+            }
+
+            const streams = getStreamsFromSession(session);
+            const activeStream = streams.find(s => s.streamType === 2 && s.selected);
+
+            if (activeStream && String(activeStream.id) === String(processingInfo.expectedStreamId)) {
+                logger.info(`Direct play: stream ${processingInfo.expectedStreamId}`);
+                return true;
+            } else {
+                logger.warn(`Wrong stream: ${activeStream?.id} (want ${processingInfo.expectedStreamId})`);
+                return false;
+            }
+        }
     }
 
     logger.info(`Restarted: ${ratingKey}`);
@@ -76,6 +97,9 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
         return true;
     }
 
+    const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
+    const processingKey = `${session.ratingKey}:${playerUuid}`;
+
     if (config.terminate_stream) {
         await plexClient.terminateTranscode(session.TranscodeSession.key);
         logger.debug(`Kill transcode: ${session.TranscodeSession.key}`);
@@ -84,21 +108,30 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
         await plexClient.terminateSession(session.Session.id, reason);
         logger.debug(`Kill session: ${session.Session.id}`);
 
-        const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
-        const processingKey = `${session.ratingKey}:${playerUuid}`;
         processedMedia.set(processingKey, {
             timestamp: Date.now(),
             ratingKey: session.ratingKey,
             playerUuid: playerUuid,
             expectedStreamId: bestStream.id,
-            originalSessionKey: session.sessionKey
+            originalSessionKey: session.sessionKey,
+            terminated: true
         });
 
         logger.info(`Switched to ${bestStream.id}, awaiting validation`);
     } else {
         logger.debug(`Skip transcode kill: ${session.TranscodeSession.key}`);
         logger.debug(`Skip session kill: ${session.Session.id}`);
-        logger.info(`Stream set: ${bestStream.id}`);
+
+        processedMedia.set(processingKey, {
+            timestamp: Date.now(),
+            ratingKey: session.ratingKey,
+            playerUuid: playerUuid,
+            expectedStreamId: bestStream.id,
+            originalSessionKey: session.sessionKey,
+            terminated: false
+        });
+
+        logger.info(`Stream set: ${bestStream.id}, awaiting validation`);
     }
 
     return true;
