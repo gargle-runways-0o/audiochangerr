@@ -85,7 +85,7 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
         const url = `/library/parts/${partId}`;
         const params = { allParts: 1, audioStreamID: streamId };
         const response = await plexApi.put(url, null, { params, headers });
-        logger.info(`Set audio: part=${partId} stream=${streamId} token=${tokenStatus}`);
+        logger.debug(`Set audio: part=${partId} stream=${streamId} token=${tokenStatus}`);
     } catch (error) {
         logger.error(`Set audio: ${error.message}`);
         throw error;

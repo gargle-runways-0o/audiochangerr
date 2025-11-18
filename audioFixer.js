@@ -77,11 +77,11 @@ async function switchToStreamAndRestart(session, bestStream, userToken, config) 
     }
 
     await plexClient.terminateTranscode(session.TranscodeSession.key);
-    logger.info(`Kill transcode: ${session.TranscodeSession.key}`);
+    logger.debug(`Kill transcode: ${session.TranscodeSession.key}`);
 
     const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
     await plexClient.terminateSession(session.Session.id, reason);
-    logger.info(`Kill session: ${session.Session.id}`);
+    logger.debug(`Kill session: ${session.Session.id}`);
 
     const playerUuid = session.Player?.uuid || session.Player?.machineIdentifier;
     const processingKey = `${session.ratingKey}:${playerUuid}`;

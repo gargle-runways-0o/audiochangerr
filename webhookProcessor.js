@@ -56,11 +56,8 @@ async function processWebhook(payload, config) {
         const event = payload.event;
 
         if (!RELEVANT_EVENTS.includes(event)) {
-            logger.debug(`Ignore: ${event}`);
             return;
         }
-
-        logger.info(`Event: ${event}`);
 
         const ratingKey = payload.Metadata?.ratingKey;
         const playerUuid = payload.Player?.uuid;
@@ -107,10 +104,7 @@ async function processWebhook(payload, config) {
             return;
         }
 
-        logger.debug(`Session: ${matchingSession.sessionKey}`);
-
         if (!matchingSession.TranscodeSession) {
-            logger.info(`Direct play`);
             return;
         }
 

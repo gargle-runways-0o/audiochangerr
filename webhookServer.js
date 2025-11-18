@@ -206,7 +206,6 @@ function start(config, onWebhook) {
 
             if (isTautulliPayload(req.body)) {
                 payload = normalizeTautulliPayload(req.body);
-                logger.info(`Tautulli: ${payload.event} ${payload.Account?.title} ${payload.Metadata?.ratingKey}`);
             } else {
                 const payloadJson = req.body.payload;
 
@@ -222,8 +221,6 @@ function start(config, onWebhook) {
                     logger.error(`Parse: ${error.message}`);
                     return res.status(400).json({ error: 'Invalid JSON payload' });
                 }
-
-                logger.info(`Plex: ${payload.event} ${payload.Account?.title}`);
             }
 
             res.status(200).json({ status: 'received', source: payload._source });
@@ -246,8 +243,6 @@ function start(config, onWebhook) {
 
     httpServer = app.listen(port, host, () => {
         logger.info(`Listen: ${host}:${port}${config.webhook.path}`);
-        logger.info(`Health: http://${host}:${port}/health`);
-        logger.info('Sources: Plex, Tautulli');
 
         const localOnly = config.webhook.local_only !== false;
         if (localOnly) {
@@ -277,10 +272,7 @@ function start(config, onWebhook) {
 
 function stop() {
     if (httpServer) {
-        logger.info('Stopping');
-        httpServer.close(() => {
-            logger.info('Stopped');
-        });
+        httpServer.close();
         httpServer = null;
         server = null;
     }

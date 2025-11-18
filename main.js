@@ -17,7 +17,7 @@ function startPollingMode() {
     setInterval(async () => {
         try {
             const sessions = await plexClient.fetchSessions();
-            logger.info(`Sessions: ${sessions.length}`);
+            logger.debug(`Sessions: ${sessions.length}`);
 
             const transcodeSessions = findTranscodes(sessions);
             const newTranscodes = transcodeSessions.filter(s => !audioFixer.isProcessed(s.ratingKey));
@@ -51,7 +51,6 @@ function startWebhookMode() {
         throw new Error('webhook.enabled must be true for webhook mode');
     }
 
-    logger.info('Webhook mode');
     logger.info(`Endpoint: http://${config.webhook.host}:${config.webhook.port}${config.webhook.path}`);
 
     const handleWebhook = async (payload) => {
@@ -59,8 +58,6 @@ function startWebhookMode() {
     };
 
     webhookServer.start(config, handleWebhook);
-    logger.info('Started');
-    logger.info('Setup: Plex → Account → Webhooks');
 
     setInterval(async () => {
         try {
@@ -76,8 +73,6 @@ function startWebhookMode() {
 async function main() {
     try {
         config = loadConfig();
-        logger.info('Config: loaded');
-
         logger.configureConsoleLogging(config.console);
 
         if (config.logging) {
@@ -88,8 +83,6 @@ async function main() {
         logger.info(`Dry run: ${config.dry_run ? 'yes' : 'no'}`);
 
         plexClient.init(config);
-        logger.info('Plex: ready');
-
         audioFixer.setValidationTimeout(config.validation_timeout_seconds);
 
         if (config.mode === 'webhook') {
@@ -100,8 +93,6 @@ async function main() {
             throw new Error(`Invalid mode: ${config.mode} (must be 'webhook' or 'polling')`);
         }
 
-        logger.info('Running');
-
     } catch (error) {
         logger.error(`Start: ${error.message}`);
         logger.debug(error.stack);
@@ -110,13 +101,13 @@ async function main() {
 }
 
 process.on('SIGINT', () => {
-    logger.info('SIGINT');
+    logger.debug('SIGINT');
     webhookServer.stop();
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-    logger.info('SIGTERM');
+    logger.debug('SIGTERM');
     webhookServer.stop();
     process.exit(0);
 });
