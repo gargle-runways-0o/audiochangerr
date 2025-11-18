@@ -44,7 +44,10 @@ async function findSessionWithRetry(ratingKey, playerUuid, config) {
     }
 
     if (maxRetries > 1) {
-        logger.warn(`No session: ${ratingKey} (${maxRetries} attempts) - webhook too early, increase initial_delay_ms/max_attempts`);
+        const suggestedDelay = Math.min(retryDelayMs * 2, 2000);
+        const suggestedAttempts = Math.min(maxRetries + 1, 5);
+        logger.warn(`No session: ${ratingKey} (${maxRetries} attempts) - webhook arrives before Plex creates session`);
+        logger.warn(`Suggestion: increase webhook.session_retry.initial_delay_ms to ${suggestedDelay} or max_attempts to ${suggestedAttempts}`);
     } else {
         logger.debug(`No session: ${ratingKey}`);
     }

@@ -17,7 +17,9 @@ function createPlexClient(baseURL, token, accept = 'application/json', timeout =
 }
 
 function init(config) {
-    plexApi = createPlexClient(config.plex_server_url, config.plex_token);
+    const timeoutMs = config.plex_api_timeout_seconds * 1000;
+    plexApi = createPlexClient(config.plex_server_url, config.plex_token, 'application/json', timeoutMs);
+    logger.debug(`Plex API timeout: ${config.plex_api_timeout_seconds}s`);
 }
 
 async function fetchSessions() {

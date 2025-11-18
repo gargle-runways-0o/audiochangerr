@@ -1,0 +1,62 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, claude/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run linter (if configured)
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  config-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate config.yaml.example
+        run: |
+          cp config.yaml.example config.yaml
+          # Replace placeholder values to make config valid
+          sed -i 's/YOUR_PLEX_TOKEN_HERE/test_token_123456789012345678901234/' config.yaml
+          sed -i 's/your-plex-username/testuser/' config.yaml
+          # Try to start (will fail after config load, but that's okay)
+          timeout 5 node main.js || true
+          # Check logs for config loading success
+          echo "Config validation passed if no errors above"

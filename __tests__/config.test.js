@@ -39,6 +39,17 @@ describe('config validation', () => {
             plex_server_url: 'http://localhost:32400',
             plex_token: 'test_token',
             owner_username: 'test_user',
+            validation_timeout_seconds: 120,
+            plex_api_timeout_seconds: 30,
+            graceful_shutdown_seconds: 30,
+            mode: 'polling',
+            dry_run: true,
+            terminate_stream: true,
+            check_interval: 10,
+            console: {
+                enabled: true,
+                level: 'info'
+            },
             audio_selector: []
         };
 
@@ -168,6 +179,17 @@ describe('config validation', () => {
             plex_server_url: 'http://localhost:32400',
             plex_token: 'test_token',
             owner_username: 'test_user',
+            validation_timeout_seconds: 120,
+            plex_api_timeout_seconds: 30,
+            graceful_shutdown_seconds: 30,
+            mode: 'polling',
+            dry_run: true,
+            terminate_stream: true,
+            check_interval: 10,
+            console: {
+                enabled: true,
+                level: 'info'
+            },
             audio_selector: []
         };
 
@@ -236,7 +258,18 @@ describe('config validation', () => {
             const config = {
                 plex_server_url: 'http://localhost:32400',
                 plex_token: 'test_token',
-                owner_username: 'test_user'
+                owner_username: 'test_user',
+                validation_timeout_seconds: 120,
+                plex_api_timeout_seconds: 30,
+                graceful_shutdown_seconds: 30,
+                mode: 'polling',
+                dry_run: true,
+                terminate_stream: true,
+                check_interval: 10,
+                console: {
+                    enabled: true,
+                    level: 'info'
+                }
             };
             mockReadFileSync.mockReturnValue(yaml.dump(config));
 

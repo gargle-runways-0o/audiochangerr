@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const logger = require('./logger');
+const packageJson = require('./package.json');
 
 let server = null;
 let httpServer = null;
@@ -193,7 +194,11 @@ function start(config, onWebhook) {
     });
 
     app.get('/health', (req, res) => {
-        res.json({ status: 'ok', service: 'audiochangerr-webhook' });
+        res.json({
+            status: 'ok',
+            service: 'audiochangerr-webhook',
+            version: packageJson.version
+        });
     });
 
     app.post(config.webhook.path, upload.single('thumb'), (req, res) => {

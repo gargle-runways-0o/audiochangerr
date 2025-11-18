@@ -1,24 +1,30 @@
 # Audiochangerr Configuration Example
 # Copy to config.yaml and customize
-# Full reference: CONFIGURATION.md
+# Full reference: docs/CONFIGURATION.md
 
 config_version: 1
 
+# --- PLEX SERVER CONNECTION ---
 plex_server_url: "http://192.168.1.100:32400"
-plex_token: "YOUR_PLEX_TOKEN_HERE"
+plex_token: "YOUR_PLEX_TOKEN_HERE"  # See docs/GETTING-PLEX-TOKEN.md
 owner_username: "your-plex-username"
 
-mode: "polling"
-dry_run: true
-terminate_stream: true
-validation_timeout_seconds: 120
+# --- EXECUTION ---
+mode: "polling"       # "polling" or "webhook"
+dry_run: true         # true = log only, false = apply changes
+terminate_stream: true  # Terminate session to restart playback
 
-# Console output (required)
+# --- TIMEOUTS (SECONDS) ---
+validation_timeout_seconds: 120  # Max wait for session restart after track switch
+plex_api_timeout_seconds: 30     # Plex API request timeout
+graceful_shutdown_seconds: 30    # Time to finish processing before shutdown
+
+# --- CONSOLE LOGGING ---
 console:
-  enabled: true
-  level: "info"
+  enabled: true      # Enable console output (true/false)
+  level: "info"      # error, warn, info, or debug
 
-# File logging (optional, disabled by default)
+# --- FILE LOGGING (OPTIONAL) ---
 # logging:
 #   enabled: true
 #   directory: "/logs"
@@ -26,28 +32,28 @@ console:
 #   max_files: "14d"
 #   level: "info"
 
-# Polling mode settings
-check_interval: 10
+# --- POLLING MODE ---
+check_interval: 10  # Seconds between session checks
 
-# Webhook mode settings
+# --- WEBHOOK MODE ---
 webhook:
   port: 4444
   host: "0.0.0.0"
   path: "/webhook"
   local_only: true
   allowed_networks:
-    - "127.0.0.0/8"
-    - "192.168.0.0/16"
-    - "10.0.0.0/8"
-    - "172.16.0.0/12"
-    - "::1/128"
-  secret: ""
+    - "127.0.0.0/8"      # Localhost
+    - "192.168.0.0/16"   # Private network (Class C)
+    - "10.0.0.0/8"       # Private network (Class A)
+    - "172.16.0.0/12"    # Private network (Class B)
+    - "::1/128"          # IPv6 localhost
+  secret: ""             # Optional webhook secret (Tautulli only)
   initial_delay_ms: 0
   session_retry:
     max_attempts: 3
     initial_delay_ms: 500
 
-# Audio selection (top to bottom, first match wins)
+# --- AUDIO SELECTION RULES (FIRST MATCH WINS) ---
 audio_selector:
   # AC3 5.1 original language, no commentary
   - codec: "ac3"
