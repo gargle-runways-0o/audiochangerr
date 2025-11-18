@@ -1,5 +1,10 @@
 # Audiochangerr
 
+[![Tests](https://github.com/gargle-runways-0o/audiochangerr/actions/workflows/test.yml/badge.svg)](https://github.com/gargle-runways-0o/audiochangerr/actions/workflows/test.yml)
+[![Docker](https://github.com/gargle-runways-0o/audiochangerr/actions/workflows/docker.yml/badge.svg)](https://github.com/gargle-runways-0o/audiochangerr/actions/workflows/docker.yml)
+[![Docker Hub](https://img.shields.io/docker/v/garglerunways0o/audiochangerr?label=docker)](https://hub.docker.com/r/garglerunways0o/audiochangerr)
+[![License](https://img.shields.io/github/license/gargle-runways-0o/audiochangerr)](LICENSE)
+
 Prevent audio transcoding in Plex by auto-selecting compatible audio tracks.
 
 ## How It Works
@@ -12,13 +17,34 @@ Detects transcoding sessions → finds compatible audio stream → switches trac
 - **Multiple webhook sources**: Native Plex webhooks or Tautulli webhooks
 - **Audio selection rules**: codec, channels, language, keywords
 - **Dry run mode**: test without changes
-- **Docker ready**
+- **Docker ready**: published to Docker Hub
 
-## Installation
+## Quick Start
+
+### Docker (Recommended)
+
+```bash
+# 1. Pull image
+docker pull garglerunways0o/audiochangerr:latest
+
+# 2. Create config
+curl -o config.yaml https://raw.githubusercontent.com/gargle-runways-0o/audiochangerr/main/config.yaml.example
+nano config.yaml  # Edit with your settings
+
+# 3. Run
+docker run -d \
+  --name audiochangerr \
+  -v $(pwd)/config.yaml:/config/config.yaml:ro \
+  -v $(pwd)/logs:/logs \
+  -p 4444:4444 \
+  --restart unless-stopped \
+  garglerunways0o/audiochangerr:latest
+```
 
 ### Standalone
+
 ```bash
-git clone https://github.com/your-username/audiochangerr.git
+git clone https://github.com/gargle-runways-0o/audiochangerr.git
 cd audiochangerr
 npm install
 cp config.yaml.example config.yaml
@@ -26,77 +52,129 @@ nano config.yaml
 npm start
 ```
 
-### Docker
-
-**IMPORTANT**: The config.yaml file is NOT included in the Docker image. You must create it from config.yaml.example and provide it via volume mount.
-
-```bash
-# 1. Create config.yaml from example
-cp config.yaml.example config.yaml
-nano config.yaml  # Edit with your settings
-
-# 2. Run container with config volume mount
-docker run -d \
-  --name audiochangerr \
-  -v /path/to/config.yaml:/config/config.yaml:ro \
-  -v /path/to/logs:/logs \
-  -p 4444:4444 \
-  audiochangerr
-```
-
 ## Configuration
 
-```bash
-cp config.yaml.example config.yaml
-nano config.yaml
+### Minimum Required
+
+Create `config.yaml` from the example and configure:
+
+```yaml
+plex_server_url: "http://192.168.1.100:32400"
+plex_token: "YOUR_PLEX_TOKEN_HERE"
+owner_username: "your-plex-username"
+mode: "polling"  # or "webhook"
+dry_run: true    # false to apply changes
+
+# See config.yaml.example for complete settings
 ```
 
-**Minimum required:**
-- `plex_server_url`: `http://192.168.1.100:32400`
-- `plex_token`: Get from Plex Web → play media → Get Info → View XML → copy from URL
-- `owner_username`: Your Plex username
-- `console.enabled` and `console.level`: Required
-- `mode`: `"polling"` or `"webhook"`
-- `dry_run`: `true` to test, `false` to apply changes
+**Getting your Plex token:** See [docs/GETTING-PLEX-TOKEN.md](docs/GETTING-PLEX-TOKEN.md)
 
-**Documentation:**
-- **[CONFIGURATION.md](CONFIGURATION.md)** - Complete field reference
-- **[WEBHOOK-SETUP.md](WEBHOOK-SETUP.md)** - Webhook setup (Plex/Tautulli)
-- **[config.yaml.example](config.yaml.example)** - Working examples
+### Documentation
+
+- **[config.yaml.example](config.yaml.example)** - Annotated example with all options
+- **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete field reference
+- **[docs/GETTING-PLEX-TOKEN.md](docs/GETTING-PLEX-TOKEN.md)** - How to get your Plex token
+- **[docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md)** - Webhook setup (Plex/Tautulli)
+- **[docs/SWITCHING-MODES.md](docs/SWITCHING-MODES.md)** - Switch between polling and webhook
 
 ## Usage
 
-```bash
-npm start
-```
+### First Run (Test Mode)
 
-**Test before production**:
-1. Set `dry_run: true`
-2. Play media that transcodes
-3. Check logs for actions
-4. Set `dry_run: false` when ready
+1. **Start with dry run enabled** (default in example):
+   ```yaml
+   dry_run: true
+   ```
 
-**Test webhook**:
+2. **Start the service**:
+   ```bash
+   # Standalone
+   npm start
+
+   # Docker
+   docker-compose up -d
+   docker logs -f audiochangerr
+   ```
+
+3. **Play media that transcodes audio**
+
+4. **Check logs** for detected transcodes and proposed changes:
+   ```
+   [info] Transcode: 12345
+   [info] Better: AC3 6ch (302)
+   [info] [DRY] Set audio: part=456 stream=302
+   ```
+
+5. **Enable changes** when ready:
+   ```yaml
+   dry_run: false
+   ```
+
+### Health Check
+
+**Webhook mode:**
 ```bash
 curl http://localhost:4444/health
-# Returns: {"status":"ok","service":"audiochangerr-webhook"}
+# Returns: {"status":"ok","service":"audiochangerr-webhook","version":"1.0.0"}
 ```
+
+**Polling mode:** Check startup logs for successful initialization
 
 ## Troubleshooting
 
-**Changes not applied**:
-- Check `dry_run: false` in config
-- Verify Plex token: `curl "http://plex-server:32400/status/sessions?X-Plex-Token=your-token"`
+### Changes not applied
+- Verify `dry_run: false` in config.yaml
+- Check Plex token is valid:
+  ```bash
+  curl "http://YOUR_SERVER:32400/status/sessions?X-Plex-Token=YOUR_TOKEN"
+  ```
+- Review logs for errors
 
-**Webhook not working**:
-- Test endpoint: `curl http://localhost:4444/health`
-- Check firewall: `sudo ufw allow 4444/tcp`
-- See [WEBHOOK-SETUP.md](WEBHOOK-SETUP.md)
+### Webhook not working
+- Test health endpoint: `curl http://localhost:4444/health`
+- Verify firewall allows port 4444: `sudo ufw allow 4444/tcp`
+- Check `allowed_networks` includes Plex/Tautulli IP
+- See [docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md) for detailed setup
 
-**No sessions detected**:
-- Polling: reduce `check_interval`
-- Both: verify `owner_username` matches Plex (case-sensitive)
+### No sessions detected
+- **Polling mode**: Reduce `check_interval` (try 5 seconds)
+- **Both modes**: Verify `owner_username` matches Plex exactly (case-sensitive)
+- Enable debug logging: `console.level: "debug"`
+
+### Debug Logging
+
+Enable detailed logs for troubleshooting:
+
+```yaml
+console:
+  enabled: true
+  level: "debug"  # error, warn, info, or debug
+```
+
+See [docs/CONFIGURATION.md#debug-output-examples](docs/CONFIGURATION.md#debug-output-examples) for log interpretation.
+
+## Architecture
+
+- **Polling Mode**: Checks Plex API every N seconds for transcoding sessions
+- **Webhook Mode**: Receives instant notifications from Plex/Tautulli when playback starts
+- **Audio Selection**: First-match-wins rules based on codec, channels, language, keywords
+- **Session Validation**: Confirms track switch succeeded and transcoding stopped
+
+## Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Run tests: `npm test`
+4. Submit a pull request
 
 ## License
 
 GNU GPL v3.0 - See [LICENSE](LICENSE)
+
+## Links
+
+- **Docker Hub**: https://hub.docker.com/r/garglerunways0o/audiochangerr
+- **GitHub**: https://github.com/gargle-runways-0o/audiochangerr
+- **Issues**: https://github.com/gargle-runways-0o/audiochangerr/issues

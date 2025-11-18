@@ -6,4 +6,7 @@ eslint.config.mjs
 .idea/
 *.iml
 .prettierrc
-*.yaml
+
+# Config files - only example should be tracked
+config.yaml
+!config.yaml.example

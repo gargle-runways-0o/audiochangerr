@@ -4,6 +4,7 @@ const plexClient = require('./plexClient');
 const audioFixer = require('./audioFixer');
 const webhookServer = require('./webhookServer');
 const webhookProcessor = require('./webhookProcessor');
+const packageJson = require('./package.json');
 
 let config = null;
 
@@ -79,6 +80,7 @@ async function main() {
             logger.configureFileLogging(config.logging);
         }
 
+        logger.info(`Audiochangerr v${packageJson.version}`);
         logger.info(`Mode: ${config.mode}`);
         logger.info(`Dry run: ${config.dry_run ? 'yes' : 'no'}`);
 
@@ -100,16 +102,35 @@ async function main() {
     }
 }
 
-process.on('SIGINT', () => {
-    logger.debug('SIGINT');
-    webhookServer.stop();
-    process.exit(0);
-});
+let isShuttingDown = false;
 
-process.on('SIGTERM', () => {
-    logger.debug('SIGTERM');
+function gracefulShutdown(signal) {
+    if (isShuttingDown) {
+        logger.warn('Shutdown already in progress');
+        return;
+    }
+
+    isShuttingDown = true;
+    logger.info(`${signal} received - shutting down gracefully (${config.graceful_shutdown_seconds}s)`);
+
     webhookServer.stop();
-    process.exit(0);
-});
+
+    const shutdownTimeout = setTimeout(() => {
+        logger.warn('Shutdown timeout - forcing exit');
+        process.exit(1);
+    }, config.graceful_shutdown_seconds * 1000);
+
+    // Allow the timeout to be cleared if we exit cleanly
+    shutdownTimeout.unref();
+
+    // Give a moment for any final log writes
+    setTimeout(() => {
+        logger.info('Shutdown complete');
+        process.exit(0);
+    }, 100);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 main();

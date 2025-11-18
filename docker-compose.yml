@@ -2,26 +2,59 @@ version: '3.8'
 
 services:
   audiochangerr:
-    image: audiochangerr:latest
+    # Pull from Docker Hub (recommended) or build locally
+    image: garglerunways0o/audiochangerr:latest
+    # Alternatively, build from source:
+    # build: .
+
     container_name: audiochangerr
     restart: unless-stopped
 
-    # SECURITY: Bind to specific IP (recommended)
-    # Replace 192.168.1.50 with your server IP
-    ports:
-      - "192.168.1.50:4444:4444"
-    # Alternatives:
-    # - "127.0.0.1:4444:4444"  # Localhost only (requires reverse proxy)
-    # - "4444:4444"             # All interfaces (relies on config.yaml IP filtering)
+    # ========================================================================
+    # Port Binding - Choose ONE option below
+    # ========================================================================
 
+    # OPTION 1: Bind to specific network interface (RECOMMENDED for production)
+    # Replace 192.168.1.100 with your server's IP address
+    # ports:
+    #   - "192.168.1.100:4444:4444"
+
+    # OPTION 2: Bind to localhost only (requires reverse proxy for external access)
+    # ports:
+    #   - "127.0.0.1:4444:4444"
+
+    # OPTION 3: Bind to all interfaces (relies on config.yaml IP filtering)
+    # Use this for quick start - IP filtering in config.yaml provides security
+    ports:
+      - "4444:4444"
+
+    # ========================================================================
+    # Volume Mounts
+    # ========================================================================
     volumes:
-      # REQUIRED: Config file (create from config.yaml.example)
+      # REQUIRED: Config file
+      # Create from config.yaml.example before starting:
+      #   cp config.yaml.example config.yaml
+      #   nano config.yaml
       - ./config.yaml:/config/config.yaml:ro
-      # Optional: Log directory (if logging.enabled in config.yaml)
+
+      # OPTIONAL: Log directory (if logging.enabled in config.yaml)
       - ./logs:/logs
 
+    # ========================================================================
+    # Health Check (webhook mode only)
+    # ========================================================================
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4444/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
+
+    # ========================================================================
+    # Environment Variables (optional - overrides config.yaml)
+    # ========================================================================
+    # environment:
+    #   - LOG_LEVEL=info
+    #   - LOG_TO_FILE=true
+    #   - LOG_DIRECTORY=/logs

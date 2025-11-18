@@ -57,7 +57,7 @@ function loadConfig() {
         throw new Error(`Parse failed: ${error.message}`);
     }
 
-    const required = ['plex_server_url', 'plex_token', 'owner_username', 'validation_timeout_seconds'];
+    const required = ['plex_server_url', 'plex_token', 'owner_username', 'validation_timeout_seconds', 'plex_api_timeout_seconds', 'graceful_shutdown_seconds'];
     for (const field of required) {
         if (!config[field] || config[field] === '') {
             throw new Error(`Missing: ${field}`);
@@ -67,6 +67,16 @@ function loadConfig() {
     // Validate validation_timeout_seconds is a positive number
     if (typeof config.validation_timeout_seconds !== 'number' || config.validation_timeout_seconds <= 0) {
         throw new Error(`validation_timeout_seconds must be a positive number (got: ${config.validation_timeout_seconds})`);
+    }
+
+    // Validate plex_api_timeout_seconds is a positive number
+    if (typeof config.plex_api_timeout_seconds !== 'number' || config.plex_api_timeout_seconds <= 0) {
+        throw new Error(`plex_api_timeout_seconds must be a positive number (got: ${config.plex_api_timeout_seconds})`);
+    }
+
+    // Validate graceful_shutdown_seconds is a positive number
+    if (typeof config.graceful_shutdown_seconds !== 'number' || config.graceful_shutdown_seconds <= 0) {
+        throw new Error(`graceful_shutdown_seconds must be a positive number (got: ${config.graceful_shutdown_seconds})`);
     }
 
     // Mode must be specified

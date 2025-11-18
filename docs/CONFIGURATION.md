@@ -2,7 +2,7 @@
 
 Complete reference for all `config.yaml` options.
 
-**Quick start:** See [README.md](README.md#configuration) for minimal setup. See [config.yaml.example](config.yaml.example) for examples.
+**Quick start:** See [README.md](../README.md#configuration) for minimal setup. See [config.yaml.example](../config.yaml.example) for examples.
 
 ## Core Settings
 
@@ -32,9 +32,22 @@ Complete reference for all `config.yaml` options.
 **Description**: `true` = log only, `false` = apply changes. Test with `true` before production.
 
 ### `validation_timeout_seconds`
-**Type**: Integer | **Required**: Yes | **Default**: `120`
+**Type**: Integer | **Required**: Yes
 **Description**: Max wait time for session restart after track switch. Timeout clears processing cache, allows retry.
-**Range**: 60-180s
+**Example**: `120`
+**Range**: 60-180s (recommended)
+
+### `plex_api_timeout_seconds`
+**Type**: Integer | **Required**: Yes
+**Description**: Timeout for Plex API requests (sessions, metadata, etc.). Prevents indefinite hangs on slow/unresponsive Plex servers.
+**Example**: `30`
+**Range**: 10-120s (30s recommended for most networks)
+
+### `graceful_shutdown_seconds`
+**Type**: Integer | **Required**: Yes
+**Description**: Maximum time to wait for in-progress operations to complete during shutdown (SIGTERM/SIGINT). After timeout, forces exit.
+**Example**: `30`
+**Range**: 10-60s (30s recommended)
 
 ## Webhook Settings
 
@@ -292,3 +305,82 @@ logging:
   max_files: "14d"
   level: "info"
 ```
+
+## Debug Output Examples
+
+Setting `console.level: "debug"` or `logging.level: "debug"` provides detailed operational logs. Use for troubleshooting.
+
+### Startup (Info Level)
+```
+2025-11-18 12:00:00 [INFO]: Audiochangerr v1.0.0
+2025-11-18 12:00:00 [INFO]: Mode: webhook
+2025-11-18 12:00:00 [INFO]: Dry run: no
+2025-11-18 12:00:00 [INFO]: Validation: 120s
+2025-11-18 12:00:00 [INFO]: Endpoint: http://0.0.0.0:4444/webhook
+2025-11-18 12:00:00 [INFO]: Networks: 127.0.0.0/8, 192.168.1.0/24
+```
+
+### Webhook Processing (Debug Level)
+```
+2025-11-18 12:05:30 [DEBUG]: POST /webhook 192.168.1.50
+2025-11-18 12:05:30 [DEBUG]: Search: media=12345 player=abc-123 user=john
+2025-11-18 12:05:30 [INFO]: Transcode: 12345
+2025-11-18 12:05:30 [INFO]: Player: Plex Web (Chrome) user: john
+2025-11-18 12:05:30 [DEBUG]: Select: 12345 current=301
+2025-11-18 12:05:30 [DEBUG]: Streams: 301:aac*, 302:ac3, 303:dts
+2025-11-18 12:05:30 [DEBUG]: Eval 302
+2025-11-18 12:05:30 [DEBUG]: Match: 302
+2025-11-18 12:05:30 [DEBUG]: Selected: 302 ac3 6ch (rule #1)
+2025-11-18 12:05:30 [INFO]: Better: AC3 6ch (302)
+2025-11-18 12:05:30 [DEBUG]: Kill transcode: /transcode/sessions/xyz
+2025-11-18 12:05:30 [DEBUG]: Kill session: abc-123
+2025-11-18 12:05:30 [INFO]: Switched to 302, awaiting validation
+```
+
+### Session Validation (Debug Level)
+```
+2025-11-18 12:05:35 [DEBUG]: Search: media=12345 player=abc-123 user=john
+2025-11-18 12:05:35 [DEBUG]: Same session: old-key
+2025-11-18 12:05:40 [INFO]: Restarted: 12345
+2025-11-18 12:05:40 [INFO]: Direct play: stream 302
+2025-11-18 12:05:40 [INFO]: Validated: 12345
+```
+
+### Audio Selection Failure (Debug Level)
+```
+2025-11-18 12:10:00 [DEBUG]: Select: 12345 current=301
+2025-11-18 12:10:00 [DEBUG]: Streams: 301:aac*, 302:mp3
+2025-11-18 12:10:00 [DEBUG]: Eval 302
+2025-11-18 12:10:00 [DEBUG]:   Codec: want ac3 got mp3
+2025-11-18 12:10:00 [DEBUG]: No match
+2025-11-18 12:10:00 [WARN]: No better stream - check audio_selector rules match available streams
+```
+
+### Webhook Retry (Debug Level)
+```
+2025-11-18 12:15:00 [DEBUG]: Search: media=12345 player=abc-123 user=john
+2025-11-18 12:15:00 [DEBUG]: No match: want ratingKey=12345 player=abc-123
+2025-11-18 12:15:00 [DEBUG]: Sessions: [0] 12340:101, [1] 12341:102
+2025-11-18 12:15:00 [DEBUG]: Retry 1/3 in 500ms
+2025-11-18 12:15:01 [INFO]: Session found: 12345 (2 attempts)
+```
+
+### Common Debug Patterns
+
+**Normal operation:**
+- `[INFO]` for major events (transcode detected, switched, validated)
+- No `[WARN]` or `[ERROR]` messages
+- Each webhook results in "Transcode" → "Better" → "Switched" → "Validated"
+
+**Issues to investigate:**
+- `[WARN]: No better stream` - Audio selector rules don't match available streams
+- `[WARN]: Still transcoding` - Selected codec incompatible with client
+- `[WARN]: Wrong stream` - Stream switched but different one selected
+- `[ERROR]: Sessions: 401` - Invalid Plex token
+- `[ERROR]: Metadata: 404` - Invalid rating key or deleted media
+
+**Timing issues:**
+- Multiple "Retry X/Y" messages - Increase `session_retry.initial_delay_ms`
+- "No session (5 attempts)" - Increase `session_retry.max_attempts` or add `initial_delay_ms`
+
+See [SWITCHING-MODES.md](SWITCHING-MODES.md) for troubleshooting specific to polling vs. webhook modes.

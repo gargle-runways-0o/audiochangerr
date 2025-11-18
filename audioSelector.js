@@ -100,10 +100,11 @@ function selectBestAudioStream(mediaInfo, currentStreamId, audioSelectorConfig) 
         return true;
     };
 
-    for (const rule of audioSelectorConfig) {
+    for (let i = 0; i < audioSelectorConfig.length; i++) {
+        const rule = audioSelectorConfig[i];
         const matchedStream = audioStreams.find(stream => isStreamMatch(stream, rule));
         if (matchedStream) {
-            logger.debug(`Selected: ${matchedStream.id} ${matchedStream.codec} ${matchedStream.channels}ch`);
+            logger.debug(`Selected: ${matchedStream.id} ${matchedStream.codec} ${matchedStream.channels}ch (rule #${i + 1})`);
             return matchedStream;
         }
     }
