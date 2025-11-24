@@ -68,13 +68,13 @@ dry_run: true    # false to apply changes
 # See config.yaml.example for complete settings
 ```
 
-**Getting your Plex token:** See [docs/GETTING-PLEX-TOKEN.md](docs/GETTING-PLEX-TOKEN.md)
+**Authentication:** See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)
 
 ### Documentation
 
 - **[config.yaml.example](config.yaml.example)** - Annotated example with all options
+- **[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)** - Plex authentication (PIN/token/env)
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete field reference
-- **[docs/GETTING-PLEX-TOKEN.md](docs/GETTING-PLEX-TOKEN.md)** - How to get your Plex token
 - **[docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md)** - Webhook setup (Plex/Tautulli)
 - **[docs/SWITCHING-MODES.md](docs/SWITCHING-MODES.md)** - Switch between polling and webhook
 

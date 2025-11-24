@@ -19,7 +19,7 @@ auth_method: "pin"
 
 # Method 2: Manual token (legacy) - requires plex_token field
 # auth_method: "token"
-# plex_token: "YOUR_PLEX_TOKEN_HERE"  # See docs/GETTING-PLEX-TOKEN.md
+# plex_token: "YOUR_PLEX_TOKEN_HERE"  # See docs/AUTHENTICATION.md
 
 # Method 3: Environment variable - set PLEX_TOKEN in environment
 # auth_method: "env"

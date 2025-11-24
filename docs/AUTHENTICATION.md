@@ -25,10 +25,16 @@ npm start
 
 ## Token (Legacy)
 
+**Get token:**
+1. Open Plex Web App
+2. Play any media
+3. Click **···** → **Get Info** → **View XML**
+4. Copy `X-Plex-Token=XXX` from URL
+
 **config.yaml:**
 ```yaml
 auth_method: "token"
-plex_token: "YOUR_TOKEN"  # See GETTING-PLEX-TOKEN.md
+plex_token: "YOUR_TOKEN"
 ```
 
 **Use for:** Existing setups, migration. Consider `env` for automation.
