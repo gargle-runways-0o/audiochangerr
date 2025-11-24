@@ -57,10 +57,23 @@ function loadConfig() {
         throw new Error(`Parse failed: ${error.message}`);
     }
 
-    const required = ['plex_server_url', 'plex_token', 'owner_username', 'validation_timeout_seconds', 'plex_api_timeout_seconds', 'graceful_shutdown_seconds'];
+    const required = ['plex_server_url', 'auth_method', 'owner_username', 'validation_timeout_seconds', 'plex_api_timeout_seconds', 'graceful_shutdown_seconds'];
     for (const field of required) {
         if (!config[field] || config[field] === '') {
             throw new Error(`Missing: ${field}`);
+        }
+    }
+
+    // Validate auth_method
+    const validAuthMethods = ['token', 'pin', 'env'];
+    if (!validAuthMethods.includes(config.auth_method)) {
+        throw new Error(`auth_method must be one of: ${validAuthMethods.join(', ')} (got: ${config.auth_method})`);
+    }
+
+    // Validate plex_token required when auth_method is 'token'
+    if (config.auth_method === 'token') {
+        if (!config.plex_token || config.plex_token === '') {
+            throw new Error(`plex_token required when auth_method is 'token'`);
         }
     }
 

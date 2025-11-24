@@ -11,10 +11,21 @@ Complete reference for all `config.yaml` options.
 **Description**: Plex server URL for API communications.
 **Example**: `http://192.168.1.100:32400`
 
-### `plex_token`
+### `auth_method`
 **Type**: String | **Required**: Yes
+**Options**: `pin`, `token`, `env`
+**Description**: Plex authentication method.
+- `pin`: Interactive PIN authentication (recommended). Visit https://plex.tv/link on first run.
+- `token`: Manual token in `plex_token` field (legacy).
+- `env`: Token from `PLEX_TOKEN` environment variable.
+
+**See**: [AUTHENTICATION.md](AUTHENTICATION.md) for detailed setup guide.
+
+### `plex_token`
+**Type**: String | **Required**: Only when `auth_method: "token"`
 **Description**: Plex API authentication token. Get from media item → Get Info → View XML → copy `X-Plex-Token` from URL.
 **Security**: Keep secure. Grants full server access.
+**Note**: Not needed for `auth_method: "pin"` or `auth_method: "env"`.
 
 ### `owner_username`
 **Type**: String | **Required**: Yes

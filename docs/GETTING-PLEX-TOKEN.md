@@ -1,6 +1,12 @@
 # Getting Your Plex Token
 
-Your Plex token is required for Audiochangerr to authenticate with your Plex Media Server.
+> **⚠️ Legacy Method:** As of v2.0, PIN authentication is recommended. This manual token method still works but requires more steps.
+>
+> **See [AUTHENTICATION.md](AUTHENTICATION.md) for the easier PIN authentication method.**
+
+---
+
+Your Plex token is required when using `auth_method: "token"` in config.yaml.
 
 ## Quick Method (Recommended)
 
@@ -73,8 +79,11 @@ Add your token to `config.yaml`:
 
 ```yaml
 plex_server_url: "http://192.168.1.100:32400"
+auth_method: "token"  # Required in v2.0+
 plex_token: "YOUR_TOKEN_HERE"
 owner_username: "your-plex-username"
 ```
 
 See [CONFIGURATION.md](CONFIGURATION.md) for complete configuration reference.
+
+**Better alternative:** Use PIN authentication instead - see [AUTHENTICATION.md](AUTHENTICATION.md).

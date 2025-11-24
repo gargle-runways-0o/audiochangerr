@@ -2,23 +2,24 @@ const axios = require('axios');
 const logger = require('./logger');
 const xml2js = require('xml2js');
 const { retryWithBackoff } = require('./retryHelper');
+const plexHeaders = require('./plexHeaders');
 
 let plexApi;
+let clientId;
 
-function createPlexClient(baseURL, token, accept = 'application/json', timeout = 600000) {
+function createPlexClient(baseURL, token, client, accept = 'application/json', timeout = 600000) {
+    const headers = plexHeaders.create({ token, clientId: client, accept });
     return axios.create({
         baseURL,
-        headers: {
-            'X-Plex-Token': token,
-            'Accept': accept
-        },
+        headers,
         timeout
     });
 }
 
-function init(config) {
+function init(config, auth) {
     const timeoutMs = config.plex_api_timeout_seconds * 1000;
-    plexApi = createPlexClient(config.plex_server_url, config.plex_token, 'application/json', timeoutMs);
+    clientId = auth.clientId;
+    plexApi = createPlexClient(config.plex_server_url, auth.token, clientId, 'application/json', timeoutMs);
     logger.debug(`Plex API timeout: ${config.plex_api_timeout_seconds}s`);
 }
 
@@ -143,6 +144,7 @@ async function fetchManagedUserTokens() {
         const plexTvApi = createPlexClient(
             'https://plex.tv',
             plexApi.defaults.headers['X-Plex-Token'],
+            clientId,
             'application/xml'
         );
 
