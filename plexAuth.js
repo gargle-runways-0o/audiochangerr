@@ -70,21 +70,29 @@ async function pollForToken(pinId, { clientId }) {
     delete headers['X-Plex-Token'];
 
     const startTime = Date.now();
-
+    let attempt = 0;
+ 
     while (true) {
+        attempt++;
+ 
         // Check timeout
         if (Date.now() - startTime > PIN_TIMEOUT_MS) {
             throw new Error('PIN authentication timeout (4 minutes). Restart to try again.');
         }
-
+ 
         try {
             const response = await axios.get(`${PLEX_TV_BASE}/pins/${pinId}.xml`, { headers });
             const parsed = await parseStringPromise(response.data);
-
+ 
             const token = parsed.pin?.auth_token?.[0];
-
+ 
             if (token && token.length > 0) {
+                console.log(`Auth token received after ${attempt} attempts`);
                 return token;
+            }
+ 
+            if (attempt % 10 === 0) {
+                console.log(`Still waiting for PIN entry (${attempt} attempts, ${Math.floor((Date.now() - startTime) / 1000)}s)...`);
             }
         } catch (error) {
             if (error.response && error.response.status !== 404) {
