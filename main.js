@@ -4,6 +4,8 @@ const plexClient = require('./plexClient');
 const audioFixer = require('./audioFixer');
 const webhookServer = require('./webhookServer');
 const webhookProcessor = require('./webhookProcessor');
+const plexAuth = require('./plexAuth');
+const authStorage = require('./authStorage');
 const packageJson = require('./package.json');
 
 let config = null;
@@ -71,6 +73,71 @@ function startWebhookMode() {
     }, 60000);
 }
 
+async function ensureAuthenticated(config) {
+    switch (config.auth_method) {
+        case 'env':
+            if (!process.env.PLEX_TOKEN) {
+                throw new Error('auth_method is "env" but PLEX_TOKEN not set');
+            }
+            logger.info('Auth: env');
+            // Generate clientId for env auth
+            const envClientId = authStorage.exists() ? authStorage.load().clientId : plexAuth.generateClientId();
+            if (!authStorage.exists()) {
+                authStorage.save({ clientId: envClientId, token: process.env.PLEX_TOKEN, createdAt: Date.now() });
+            }
+            return { token: process.env.PLEX_TOKEN, clientId: envClientId };
+
+        case 'token':
+            if (!config.plex_token) {
+                throw new Error('auth_method is "token" but plex_token not in config');
+            }
+            logger.info('Auth: token');
+            // Generate clientId for token auth
+            const tokenClientId = authStorage.exists() ? authStorage.load().clientId : plexAuth.generateClientId();
+            if (!authStorage.exists()) {
+                authStorage.save({ clientId: tokenClientId, token: config.plex_token, createdAt: Date.now() });
+            }
+            return { token: config.plex_token, clientId: tokenClientId };
+
+        case 'pin':
+            return await authenticateWithPin();
+
+        default:
+            throw new Error(`auth_method must be: env, token, or pin (got: ${config.auth_method})`);
+    }
+}
+
+async function authenticateWithPin() {
+    // Check if we have existing auth
+    if (authStorage.exists()) {
+        const { token, clientId } = authStorage.load();
+        const valid = await plexAuth.validateToken(token, clientId);
+        if (valid) {
+            logger.info('Auth: PIN (cached)');
+            return { token, clientId };
+        }
+        logger.warn('Auth: token invalid - re-authenticating');
+    }
+
+    // Interactive PIN flow
+    const clientId = authStorage.exists()
+        ? authStorage.load().clientId
+        : plexAuth.generateClientId();
+
+    const { code, pinId } = await plexAuth.requestPin({ clientId });
+
+    console.log('\n🔐 Plex Authentication Required');
+    console.log(`Visit: https://plex.tv/link`);
+    console.log(`Code: ${code}\n`);
+
+    const token = await plexAuth.pollForToken(pinId, { clientId });
+
+    authStorage.save({ clientId, token, createdAt: Date.now() });
+
+    logger.info('Auth: complete');
+    return { token, clientId };
+}
+
 async function main() {
     try {
         config = loadConfig();
@@ -84,7 +151,8 @@ async function main() {
         logger.info(`Mode: ${config.mode}`);
         logger.info(`Dry run: ${config.dry_run ? 'yes' : 'no'}`);
 
-        plexClient.init(config);
+        const auth = await ensureAuthenticated(config);
+        plexClient.init(config, auth);
         audioFixer.setValidationTimeout(config.validation_timeout_seconds);
 
         if (config.mode === 'webhook') {

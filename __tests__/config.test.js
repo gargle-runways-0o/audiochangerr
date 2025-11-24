@@ -37,6 +37,7 @@ describe('config validation', () => {
     describe('audio_selector validation', () => {
         const validConfig = {
             plex_server_url: 'http://localhost:32400',
+            auth_method: 'token',
             plex_token: 'test_token',
             owner_username: 'test_user',
             validation_timeout_seconds: 120,
@@ -177,6 +178,7 @@ describe('config validation', () => {
     describe('config_version validation', () => {
         const validConfig = {
             plex_server_url: 'http://localhost:32400',
+            auth_method: 'token',
             plex_token: 'test_token',
             owner_username: 'test_user',
             validation_timeout_seconds: 120,
@@ -232,21 +234,36 @@ describe('config validation', () => {
             expect(() => loadConfig()).toThrow(/Missing: plex_server_url/);
         });
 
-        it('should reject missing plex_token', () => {
+        it('should reject missing plex_token when auth_method is token', () => {
             const config = {
                 plex_server_url: 'http://localhost:32400',
+                auth_method: 'token',
                 owner_username: 'test_user',
+                validation_timeout_seconds: 120,
+                plex_api_timeout_seconds: 30,
+                graceful_shutdown_seconds: 30,
+                mode: 'polling',
+                dry_run: true,
+                check_interval: 10,
+                console: {
+                    enabled: true,
+                    level: 'info'
+                },
                 audio_selector: []
             };
             mockReadFileSync.mockReturnValue(yaml.dump(config));
 
-            expect(() => loadConfig()).toThrow(/Missing: plex_token/);
+            expect(() => loadConfig()).toThrow(/plex_token required when auth_method is 'token'/);
         });
 
         it('should reject missing owner_username', () => {
             const config = {
                 plex_server_url: 'http://localhost:32400',
+                auth_method: 'token',
                 plex_token: 'test_token',
+                validation_timeout_seconds: 120,
+                plex_api_timeout_seconds: 30,
+                graceful_shutdown_seconds: 30,
                 audio_selector: []
             };
             mockReadFileSync.mockReturnValue(yaml.dump(config));
@@ -257,6 +274,7 @@ describe('config validation', () => {
         it('should reject missing audio_selector', () => {
             const config = {
                 plex_server_url: 'http://localhost:32400',
+                auth_method: 'token',
                 plex_token: 'test_token',
                 owner_username: 'test_user',
                 validation_timeout_seconds: 120,

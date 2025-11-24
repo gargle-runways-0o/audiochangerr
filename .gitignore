@@ -10,3 +10,6 @@ eslint.config.mjs
 # Config files - only example should be tracked
 config.yaml
 !config.yaml.example
+
+# Auth files - contains Plex token
+.auth.json

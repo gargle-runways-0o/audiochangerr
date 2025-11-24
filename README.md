@@ -60,23 +60,22 @@ Create `config.yaml` from the example and configure:
 
 ```yaml
 plex_server_url: "http://192.168.1.100:32400"
-plex_token: "YOUR_PLEX_TOKEN_HERE"
+auth_method: "pin"  # "pin", "token", or "env"
 owner_username: "your-plex-username"
-mode: "polling"  # or "webhook"
-dry_run: true    # false to apply changes
+mode: "polling"     # "polling" or "webhook"
+dry_run: true       # false to apply changes
 
-# See config.yaml.example for complete settings
+# See config.yaml.example for all options
 ```
 
-**Getting your Plex token:** See [docs/GETTING-PLEX-TOKEN.md](docs/GETTING-PLEX-TOKEN.md)
+**Authentication setup:** [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)
 
 ### Documentation
 
 - **[config.yaml.example](config.yaml.example)** - Annotated example with all options
+- **[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)** - Plex authentication (PIN/token/env)
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete field reference
-- **[docs/GETTING-PLEX-TOKEN.md](docs/GETTING-PLEX-TOKEN.md)** - How to get your Plex token
-- **[docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md)** - Webhook setup (Plex/Tautulli)
-- **[docs/SWITCHING-MODES.md](docs/SWITCHING-MODES.md)** - Switch between polling and webhook
+- **[docs/WEBHOOK.md](docs/WEBHOOK.md)** - Webhook mode setup (Plex/Tautulli)
 
 ## Usage
 
@@ -116,7 +115,7 @@ dry_run: true    # false to apply changes
 **Webhook mode:**
 ```bash
 curl http://localhost:4444/health
-# Returns: {"status":"ok","service":"audiochangerr-webhook","version":"1.0.0"}
+# Returns: {"status":"ok","service":"audiochangerr-webhook","version":"2.0.0"}
 ```
 
 **Polling mode:** Check startup logs for successful initialization
@@ -135,7 +134,7 @@ curl http://localhost:4444/health
 - Test health endpoint: `curl http://localhost:4444/health`
 - Verify firewall allows port 4444: `sudo ufw allow 4444/tcp`
 - Check `allowed_networks` includes Plex/Tautulli IP
-- See [docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md) for detailed setup
+- See [docs/WEBHOOK.md](docs/WEBHOOK.md) for detailed setup
 
 ### No sessions detected
 - **Polling mode**: Reduce `check_interval` (try 5 seconds)

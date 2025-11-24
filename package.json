@@ -1,6 +1,6 @@
 {
   "name": "audiochangerr",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Change the default audio track for items in Plex to aid in preventing transcoding.",
   "main": "main.js",
   "scripts": {
@@ -22,6 +22,7 @@
     "express": "^4.18.2",
     "js-yaml": "^4.1.1",
     "multer": "^2.0.0-rc.4",
+    "uuid": "^11.0.3",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^5.0.0",
     "xml2js": "^0.6.2"
