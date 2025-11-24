@@ -9,20 +9,8 @@ plex_server_url: "http://192.168.1.100:32400"
 owner_username: "your-plex-username"
 
 # --- AUTHENTICATION ---
-# Choose ONE method: "pin" (recommended), "token", or "env"
-auth_method: "pin"
-
-# Method 1: PIN authentication (recommended) - interactive on first run
-#   - On startup, visit https://plex.tv/link and enter displayed code
-#   - Token auto-saved to .auth.json (do not commit to git)
-#   - No manual token extraction needed
-
-# Method 2: Manual token (legacy) - requires plex_token field
-# auth_method: "token"
-# plex_token: "YOUR_PLEX_TOKEN_HERE"  # See docs/AUTHENTICATION.md
-
-# Method 3: Environment variable - set PLEX_TOKEN in environment
-# auth_method: "env"
+auth_method: "pin"  # "pin" (recommended), "token" (legacy), or "env"
+# plex_token: "YOUR_TOKEN"  # Required if auth_method: "token"
 
 # --- EXECUTION ---
 mode: "polling"       # "polling" or "webhook"
