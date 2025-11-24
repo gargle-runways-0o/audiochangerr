@@ -27,14 +27,15 @@ Detects transcoding sessions → finds compatible audio stream → switches trac
 # 1. Pull image
 docker pull garglerunways0o/audiochangerr:latest
 
-# 2. Create config
-curl -o config.yaml https://raw.githubusercontent.com/gargle-runways-0o/audiochangerr/main/config.yaml.example
-nano config.yaml  # Edit with your settings
+# 2. Create config directory
+mkdir -p config logs
+curl -o config/config.yaml https://raw.githubusercontent.com/gargle-runways-0o/audiochangerr/main/config.yaml.example
+nano config/config.yaml  # Edit with your settings
 
 # 3. Run
 docker run -d \
   --name audiochangerr \
-  -v $(pwd)/config.yaml:/config/config.yaml:ro \
+  -v $(pwd)/config:/config \
   -v $(pwd)/logs:/logs \
   -p 4444:4444 \
   --restart unless-stopped \

@@ -19,7 +19,11 @@ npm start
 
 **Subsequent runs:** Auto-validates, re-auths if invalid.
 
-**Docker:** `docker run -it audiochangerr` (interactive required)
+**Docker:**
+```bash
+docker run -it -v $(pwd)/config:/config audiochangerr
+# Volume mount required for .auth.json persistence
+```
 
 ---
 
@@ -70,6 +74,11 @@ Auto-created by `pin` and `env` methods.
 **Location:** `/config/.auth.json` (Docker) or `./.auth.json`
 **Permissions:** 0600 (owner only)
 **Delete to re-auth**
+
+**Docker:** Mount `/config` directory (not just config.yaml) for persistence:
+```bash
+-v $(pwd)/config:/config
+```
 
 ---
 
