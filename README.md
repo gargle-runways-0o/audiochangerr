@@ -60,15 +60,15 @@ Create `config.yaml` from the example and configure:
 
 ```yaml
 plex_server_url: "http://192.168.1.100:32400"
-plex_token: "YOUR_PLEX_TOKEN_HERE"
+auth_method: "pin"  # "pin", "token", or "env"
 owner_username: "your-plex-username"
-mode: "polling"  # or "webhook"
-dry_run: true    # false to apply changes
+mode: "polling"     # "polling" or "webhook"
+dry_run: true       # false to apply changes
 
-# See config.yaml.example for complete settings
+# See config.yaml.example for all options
 ```
 
-**Authentication:** See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)
+**Authentication setup:** [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)
 
 ### Documentation
 
@@ -116,7 +116,7 @@ dry_run: true    # false to apply changes
 **Webhook mode:**
 ```bash
 curl http://localhost:4444/health
-# Returns: {"status":"ok","service":"audiochangerr-webhook","version":"1.0.0"}
+# Returns: {"status":"ok","service":"audiochangerr-webhook","version":"2.0.0"}
 ```
 
 **Polling mode:** Check startup logs for successful initialization
