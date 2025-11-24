@@ -46,6 +46,7 @@ function load() {
     try {
         const fileContents = fs.readFileSync(authPath, 'utf8');
         data = JSON.parse(fileContents);
+        console.log(`Auth loaded: ${authPath}`);
     } catch (error) {
         throw new Error(`Auth file corrupted: ${authPath}. Delete it and restart to re-authenticate.`);
     }
@@ -74,8 +75,9 @@ function save(data) {
 
     try {
         fs.writeFileSync(authPath, json, { mode: 0o600 });
+        console.log(`Auth saved: ${authPath}`);
     } catch (error) {
-        throw new Error(`Failed to save auth: ${error.message}`);
+        throw new Error(`Failed to save auth to ${authPath}: ${error.message}`);
     }
 }
 
