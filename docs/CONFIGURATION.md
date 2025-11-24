@@ -398,4 +398,4 @@ Setting `console.level: "debug"` or `logging.level: "debug"` provides detailed o
 - Multiple "Retry X/Y" messages - Increase `session_retry.initial_delay_ms`
 - "No session (5 attempts)" - Increase `session_retry.max_attempts` or add `initial_delay_ms`
 
-See [SWITCHING-MODES.md](SWITCHING-MODES.md) for troubleshooting specific to polling vs. webhook modes.
+See [WEBHOOK.md](WEBHOOK.md) for webhook mode setup and troubleshooting.

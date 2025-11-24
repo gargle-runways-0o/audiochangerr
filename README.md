@@ -75,8 +75,7 @@ dry_run: true       # false to apply changes
 - **[config.yaml.example](config.yaml.example)** - Annotated example with all options
 - **[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)** - Plex authentication (PIN/token/env)
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete field reference
-- **[docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md)** - Webhook setup (Plex/Tautulli)
-- **[docs/SWITCHING-MODES.md](docs/SWITCHING-MODES.md)** - Switch between polling and webhook
+- **[docs/WEBHOOK.md](docs/WEBHOOK.md)** - Webhook mode setup (Plex/Tautulli)
 
 ## Usage
 
@@ -135,7 +134,7 @@ curl http://localhost:4444/health
 - Test health endpoint: `curl http://localhost:4444/health`
 - Verify firewall allows port 4444: `sudo ufw allow 4444/tcp`
 - Check `allowed_networks` includes Plex/Tautulli IP
-- See [docs/WEBHOOK-SETUP.md](docs/WEBHOOK-SETUP.md) for detailed setup
+- See [docs/WEBHOOK.md](docs/WEBHOOK.md) for detailed setup
 
 ### No sessions detected
 - **Polling mode**: Reduce `check_interval` (try 5 seconds)
