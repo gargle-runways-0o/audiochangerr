@@ -79,7 +79,7 @@ async function ensureAuthenticated(config) {
             if (!process.env.PLEX_TOKEN) {
                 throw new Error('auth_method is "env" but PLEX_TOKEN not set');
             }
-            logger.info('Auth: environment variable');
+            logger.info('Auth: env');
             // Generate clientId for env auth
             const envClientId = authStorage.exists() ? authStorage.load().clientId : plexAuth.generateClientId();
             if (!authStorage.exists()) {
@@ -91,7 +91,7 @@ async function ensureAuthenticated(config) {
             if (!config.plex_token) {
                 throw new Error('auth_method is "token" but plex_token not in config');
             }
-            logger.info('Auth: config.yaml token');
+            logger.info('Auth: token');
             // Generate clientId for token auth
             const tokenClientId = authStorage.exists() ? authStorage.load().clientId : plexAuth.generateClientId();
             if (!authStorage.exists()) {
@@ -111,13 +111,12 @@ async function authenticateWithPin() {
     // Check if we have existing auth
     if (authStorage.exists()) {
         const { token, clientId } = authStorage.load();
-        logger.info('Validating token...');
         const valid = await plexAuth.validateToken(token, clientId);
         if (valid) {
             logger.info('Auth: PIN (cached)');
             return { token, clientId };
         }
-        logger.warn('Cached token invalid - re-authenticating...');
+        logger.warn('Auth: token invalid - re-authenticating');
     }
 
     // Interactive PIN flow
@@ -125,19 +124,17 @@ async function authenticateWithPin() {
         ? authStorage.load().clientId
         : plexAuth.generateClientId();
 
-    logger.info('Requesting PIN from Plex.tv...');
     const { code, pinId } = await plexAuth.requestPin({ clientId });
 
     console.log('\n🔐 Plex Authentication Required');
     console.log(`Visit: https://plex.tv/link`);
     console.log(`Code: ${code}\n`);
 
-    logger.info('Waiting for authorization...');
     const token = await plexAuth.pollForToken(pinId, { clientId });
 
     authStorage.save({ clientId, token, createdAt: Date.now() });
 
-    logger.info('✓ Authentication successful');
+    logger.info('Auth: complete');
     return { token, clientId };
 }
 
