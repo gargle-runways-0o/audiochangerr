@@ -1,88 +1,42 @@
 # Upgrading to v2.0
 
-## Breaking Changes
+**Breaking change:** `auth_method` required in config.yaml.
 
-v2.0 requires `auth_method` field in `config.yaml`.
+## Quick Fix
 
-## Quick Migration
+Add one line:
+```yaml
+auth_method: "token"  # Add
+plex_token: "..."     # Keep existing
+```
 
-### Existing Users (Keep Current Token)
-
-Add one line to `config.yaml`:
+## Recommended: Switch to PIN
 
 ```yaml
-auth_method: "token"  # Add this
-plex_token: "existing-token"  # Keep existing
+auth_method: "pin"    # Change
+# plex_token: "..."   # Remove
 ```
 
-**Done.** No other changes needed.
+Then `npm start` and follow prompts.
 
 ---
 
-### New Authentication (Recommended)
+## What's New
 
-Migrate to PIN authentication for better security:
-
-1. **Update config.yaml:**
-   ```yaml
-   auth_method: "pin"  # Change this
-   # plex_token: "..."  # Remove this line
-   ```
-
-2. **Restart:**
-   ```bash
-   npm start
-   ```
-
-3. **Follow prompts:**
-   - Visit https://plex.tv/link
-   - Enter displayed code
-   - Done - token auto-saved
+- PIN authentication (auto-managed tokens)
+- Environment variable auth
+- `.auth.json` storage
+- Token validation on startup
 
 ---
 
-## What Changed
+## Errors
 
-### v2.0.0
-
-**Added:**
-- PIN-based authentication (recommended)
-- Environment variable auth support
-- `.auth.json` for token storage
-- Client identifier tracking
-- Automatic token validation
-
-**Changed:**
-- **BREAKING:** `auth_method` now required in config.yaml
-- `plex_token` now optional (only for `auth_method: token`)
-
-**Migration:**
-- Add `auth_method: "token"` to keep existing setup working
-- Or switch to `auth_method: "pin"` for better security
+| Error | Fix |
+|-------|-----|
+| `Missing: auth_method` | Add `auth_method: "token"` |
+| `plex_token required when auth_method is 'token'` | Add `plex_token` or use `auth_method: "pin"` |
 
 ---
 
-## Troubleshooting
-
-**Error: Missing: auth_method**
-```
-throw new Error('Missing: auth_method')
-```
-
-**Fix:** Add `auth_method: "token"` to config.yaml
-
----
-
-**Error: plex_token required when auth_method is 'token'**
-
-**Fix:** Either:
-1. Add `plex_token` to config.yaml, or
-2. Change to `auth_method: "pin"`
-
----
-
-## Full Documentation
-
-- [Authentication Guide](AUTHENTICATION.md) - All auth methods
-- [Configuration Reference](CONFIGURATION.md) - All config options
-- [Getting Plex Token](GETTING-PLEX-TOKEN.md) - Manual token extraction (legacy)
+**Docs:** [AUTHENTICATION.md](AUTHENTICATION.md) · [CONFIGURATION.md](CONFIGURATION.md)
