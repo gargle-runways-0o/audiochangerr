@@ -188,6 +188,10 @@ async function fetchManagedUserTokens() {
     }
 }
 
+function getOwnerToken() {
+    return plexApi.defaults.headers['X-Plex-Token'];
+}
+
 module.exports = {
     init,
     fetchSessions,
@@ -196,4 +200,5 @@ module.exports = {
     terminateTranscode,
     terminateSession,
     fetchManagedUserTokens,
+    getOwnerToken,
 };
