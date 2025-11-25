@@ -6,6 +6,7 @@ const plexHeaders = require('./plexHeaders');
 
 let plexApi;
 let clientId;
+let ownerToken;
 
 function createPlexClient(baseURL, token, client, accept = 'application/json', timeout = 600000) {
     const headers = plexHeaders.create({ token, clientId: client, accept });
@@ -18,8 +19,11 @@ function createPlexClient(baseURL, token, client, accept = 'application/json', t
 
 function init(config, auth) {
     const timeoutMs = config.plex_api_timeout_seconds * 1000;
+    
     clientId = auth.clientId;
-    plexApi = createPlexClient(config.plex_server_url, auth.token, clientId, 'application/json', timeoutMs);
+    ownerToken = auth.token;
+
+    plexApi = createPlexClient(config.plex_server_url, ownerToken, clientId, 'application/json', timeoutMs);
     logger.debug(`Plex API timeout: ${config.plex_api_timeout_seconds}s`);
 }
 
@@ -82,7 +86,10 @@ async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
         return;
     }
 
-    const headers = userToken ? { 'X-Plex-Token': userToken } : { 'X-Plex-Token': plexApi.defaults.headers['X-Plex-Token'] };
+    // If userToken is provided, use it; otherwise fallback to the client default (owner)
+    const headers = userToken 
+        ? { 'X-Plex-Token': userToken } 
+        : {}; 
 
     try {
         const url = `/library/parts/${partId}`;
@@ -143,7 +150,7 @@ async function fetchManagedUserTokens() {
     try {
         const plexTvApi = createPlexClient(
             'https://plex.tv',
-            plexApi.defaults.headers['X-Plex-Token'],
+            ownerToken,
             clientId,
             'application/xml'
         );
@@ -192,11 +199,10 @@ function getOwnerToken() {
     if (!plexApi) {
         throw new Error('plexClient not initialized - call init() first');
     }
-    const token = plexApi.defaults.headers['X-Plex-Token'];
-    if (!token) {
+    if (!ownerToken) {
         throw new Error('Owner token not available - check authentication');
     }
-    return token;
+    return ownerToken;
 }
 
 module.exports = {
