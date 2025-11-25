@@ -54,7 +54,7 @@ async function resolveUserToken(session, config) {
 
     if (sessionUsername === config.owner_username) {
         logger.debug(`Owner: ${sessionUsername}`);
-        return config.plex_token;
+        return plexClient.getOwnerToken();
     }
 
     if (managedUserTokens[session.User.id]) {
