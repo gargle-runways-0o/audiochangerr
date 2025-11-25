@@ -3,7 +3,6 @@
  * Handles PIN-based authentication flow with Plex.tv
  */
 const axios = require('axios');
-const { parseStringPromise } = require('xml2js');
 const { v4: uuidv4 } = require('uuid');
 const plexHeaders = require('./plexHeaders');
 
@@ -29,24 +28,25 @@ async function requestPin({ clientId }) {
     const headers = plexHeaders.create({
         token: 'none',
         clientId,
-        accept: 'application/xml'
+        accept: 'application/json'
     });
     delete headers['X-Plex-Token'];
 
     process.stdout.write(`[DEBUG] Client ID: ${clientId}\n`);
-    process.stdout.write(`[DEBUG] Requesting PIN from ${PLEX_TV_BASE}/pins.xml\n`);
+    process.stdout.write(`[DEBUG] Requesting PIN from ${PLEX_TV_BASE}/pins.json\n`);
 
     try {
-        const response = await axios.post(`${PLEX_TV_BASE}/pins.xml`, null, { headers });
-        const parsed = await parseStringPromise(response.data);
-
-        const code = parsed.pin?.code?.[0];
+        const response = await axios.post(`${PLEX_TV_BASE}/pins.json`, null, { headers });
         
-        // FIX: Handle xml2js parsing where ID is an object (due to attributes) or a primitive
-        const rawId = parsed.pin?.id?.[0];
-        const pinId = rawId?._ || rawId;
+        // FIX: Handle nested 'pin' object (common in Plex V1 API)
+        const data = response.data.pin || response.data;
+        
+        const { code, id } = data;
+        const pinId = id; 
 
         if (!code || !pinId) {
+            // Log the actual structure received to help debug if it fails again
+            process.stdout.write(`[DEBUG] Unexpected Response: ${JSON.stringify(response.data)}\n`);
             throw new Error('Plex.tv response missing PIN code or ID');
         }
 
@@ -71,12 +71,12 @@ async function pollForToken(pinId, { clientId }) {
     const headers = plexHeaders.create({
         token: 'none',
         clientId,
-        accept: 'application/xml'
+        accept: 'application/json'
     });
     delete headers['X-Plex-Token'];
 
     process.stdout.write(`[DEBUG] Starting poll for PIN ID: ${pinId}\n`);
-    process.stdout.write(`[DEBUG] Poll URL: ${PLEX_TV_BASE}/pins/${pinId}.xml\n`);
+    process.stdout.write(`[DEBUG] Poll URL: ${PLEX_TV_BASE}/pins/${pinId}.json\n`);
     process.stdout.write(`[DEBUG] Poll interval: ${POLL_INTERVAL_MS}ms, timeout: ${PIN_TIMEOUT_MS}ms\n\n`);
 
     const startTime = Date.now();
@@ -87,18 +87,18 @@ async function pollForToken(pinId, { clientId }) {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         process.stdout.write(`[${attempt}] ${elapsed}s... `);
 
-        // Check timeout
         if (Date.now() - startTime > PIN_TIMEOUT_MS) {
             process.stdout.write('\n');
             throw new Error('PIN authentication timeout (4 minutes). Restart to try again.');
         }
 
         try {
-            const response = await axios.get(`${PLEX_TV_BASE}/pins/${pinId}.xml`, { headers });
-            const parsed = await parseStringPromise(response.data);
-
-            // Show auth_token field even if empty (for debugging)
-            const token = parsed.pin?.auth_token?.[0];
+            const response = await axios.get(`${PLEX_TV_BASE}/pins/${pinId}.json`, { headers });
+            
+            // FIX: Handle nested 'pin' object in poll response
+            const data = response.data.pin || response.data;
+            
+            const token = data.auth_token;
             const tokenPreview = token ? `${token.substring(0, 8)}...` : '(empty)';
 
             if (token && token.length > 0) {
@@ -112,22 +112,21 @@ async function pollForToken(pinId, { clientId }) {
             if (error.response) {
                 process.stdout.write(`HTTP ${error.response.status}`);
                 if (error.response.data) {
-                    // Try to safely extract string data if possible, else generic message
-                    const errMsg = typeof error.response.data === 'string' 
-                        ? error.response.data.substring(0, 50) 
-                        : 'Error data';
-                    process.stdout.write(` (${errMsg}...)`);
+                    const msg = typeof error.response.data === 'object' 
+                        ? JSON.stringify(error.response.data) 
+                        : error.response.data;
+                    process.stdout.write(` (${msg.substring(0, 50)}...)`);
                 }
                 process.stdout.write('\n');
                 
-                // 404 is expected initially while the PIN is not yet linked
+                // 404 is expected initially while the PIN is not yet linked or propagating
                 if (error.response.status !== 404) {
                     throw new Error(`Plex.tv poll failed: ${error.response.status} ${error.response.statusText}`);
                 }
             } else {
                 process.stdout.write(`NETWORK ERROR: ${error.message}\n`);
                 if (attempt === 1) {
-                    throw new Error(`Cannot reach plex.tv - check container network/internet: ${error.message}`);
+                    throw new Error(`Cannot reach plex.tv: ${error.message}`);
                 }
             }
         }
@@ -156,7 +155,6 @@ async function validateToken(token, clientId) {
         if (error.response && error.response.status === 401) {
             return false;
         }
-        // Network errors or other issues - fail fast
         throw new Error(`Token validation failed: ${error.message}`);
     }
 }
