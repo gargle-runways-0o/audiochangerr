@@ -87,8 +87,10 @@ async function terminateStream(session, reason, config) {
     return true;
 }
 
-async function switchToStreamAndRestart(session, bestStream, userToken, config) {
-    const partId = getPartId(session);
+async function switchToStreamAndRestart(session, bestStream, userToken, config, mediaInfo) {
+    // Use mediaInfo to get the Part ID as Webhook sessions often lack the 'Media' structure
+    const partId = getPartId(mediaInfo || session);
+    
     await plexClient.setSelectedAudioStream(partId, bestStream.id, userToken, config.dry_run);
 
     const reason = 'Audio transcode detected. Switched to compatible track. Restart playback.';
@@ -140,11 +142,13 @@ async function processTranscodingSession(session, config) {
 
         const userToken = await resolveUserToken(session, config);
         if (!userToken) {
+            logger.warn(`Aborting switch: No token found for user ${session.User.title}`);
             return false;
         }
 
         try {
-            return await switchToStreamAndRestart(session, bestStream, userToken, config);
+            // Pass mediaInfo to ensure we can extract the Part ID correctly
+            return await switchToStreamAndRestart(session, bestStream, userToken, config, mediaInfo);
         } catch (error) {
             logger.error(`Fix: ${error.message}`);
             return false;
