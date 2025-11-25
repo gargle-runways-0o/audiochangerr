@@ -74,9 +74,12 @@ async function pollForToken(pinId, { clientId }) {
 
     while (true) {
         attempt++;
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        process.stdout.write(`Poll ${attempt} (${elapsed}s)... `);
 
         // Check timeout
         if (Date.now() - startTime > PIN_TIMEOUT_MS) {
+            process.stdout.write('\n');
             throw new Error('PIN authentication timeout (4 minutes). Restart to try again.');
         }
 
@@ -87,22 +90,24 @@ async function pollForToken(pinId, { clientId }) {
             const token = parsed.pin?.auth_token?.[0];
 
             if (token && token.length > 0) {
-                process.stdout.write(`\nAuth token received after ${attempt} attempts\n`);
+                process.stdout.write(`✓\nAuth token received\n`);
                 return token;
             }
 
-            if (attempt % 10 === 0) {
-                process.stdout.write(`Polling: ${attempt} attempts (${Math.floor((Date.now() - startTime) / 1000)}s)\n`);
-            }
+            process.stdout.write('waiting\n');
         } catch (error) {
-            if (error.response && error.response.status !== 404) {
-                throw new Error(`Plex.tv poll failed: ${error.response.status} ${error.response.statusText}`);
+            if (error.response) {
+                process.stdout.write(`HTTP ${error.response.status}\n`);
+                if (error.response.status !== 404) {
+                    throw new Error(`Plex.tv poll failed: ${error.response.status} ${error.response.statusText}`);
+                }
+            } else {
+                process.stdout.write(`network error: ${error.message}\n`);
+                // Network error on attempt 1 likely means no internet
+                if (attempt === 1) {
+                    throw new Error(`Cannot reach plex.tv - check container network/internet: ${error.message}`);
+                }
             }
-            // Network error on attempt 1 likely means no internet
-            if (attempt === 1 && !error.response) {
-                throw new Error(`Cannot reach plex.tv - check container network/internet: ${error.message}`);
-            }
-            // 404 or network errors - continue polling
         }
 
         await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
