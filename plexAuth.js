@@ -34,6 +34,9 @@ async function requestPin({ clientId }) {
     });
     delete headers['X-Plex-Token']; // Remove token header
 
+    process.stdout.write(`[DEBUG] Client ID: ${clientId}\n`);
+    process.stdout.write(`[DEBUG] Requesting PIN from ${PLEX_TV_BASE}/pins.xml\n`);
+
     try {
         const response = await axios.post(`${PLEX_TV_BASE}/pins.xml`, null, { headers });
         const parsed = await parseStringPromise(response.data);
@@ -45,6 +48,7 @@ async function requestPin({ clientId }) {
             throw new Error('Plex.tv response missing PIN code or ID');
         }
 
+        process.stdout.write(`[DEBUG] PIN ID: ${pinId}\n`);
         return { code, pinId };
     } catch (error) {
         if (error.response) {
@@ -69,13 +73,17 @@ async function pollForToken(pinId, { clientId }) {
     });
     delete headers['X-Plex-Token'];
 
+    process.stdout.write(`[DEBUG] Starting poll for PIN ID: ${pinId}\n`);
+    process.stdout.write(`[DEBUG] Poll URL: ${PLEX_TV_BASE}/pins/${pinId}.xml\n`);
+    process.stdout.write(`[DEBUG] Poll interval: ${POLL_INTERVAL_MS}ms, timeout: ${PIN_TIMEOUT_MS}ms\n\n`);
+
     const startTime = Date.now();
     let attempt = 0;
 
     while (true) {
         attempt++;
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        process.stdout.write(`Poll ${attempt} (${elapsed}s)... `);
+        process.stdout.write(`[${attempt}] ${elapsed}s... `);
 
         // Check timeout
         if (Date.now() - startTime > PIN_TIMEOUT_MS) {
@@ -87,23 +95,29 @@ async function pollForToken(pinId, { clientId }) {
             const response = await axios.get(`${PLEX_TV_BASE}/pins/${pinId}.xml`, { headers });
             const parsed = await parseStringPromise(response.data);
 
+            // Show auth_token field even if empty (for debugging)
             const token = parsed.pin?.auth_token?.[0];
+            const tokenPreview = token ? `${token.substring(0, 8)}...` : '(empty)';
 
             if (token && token.length > 0) {
-                process.stdout.write(`✓\nAuth token received\n`);
+                process.stdout.write(`✓ TOKEN RECEIVED\n`);
+                process.stdout.write(`[DEBUG] Token: ${token.substring(0, 10)}...(${token.length} chars)\n`);
                 return token;
             }
 
-            process.stdout.write('waiting\n');
+            process.stdout.write(`waiting (token: ${tokenPreview})\n`);
         } catch (error) {
             if (error.response) {
-                process.stdout.write(`HTTP ${error.response.status}\n`);
+                process.stdout.write(`HTTP ${error.response.status}`);
+                if (error.response.data) {
+                    process.stdout.write(` (${error.response.data.substring(0, 50)}...)`);
+                }
+                process.stdout.write('\n');
                 if (error.response.status !== 404) {
                     throw new Error(`Plex.tv poll failed: ${error.response.status} ${error.response.statusText}`);
                 }
             } else {
-                process.stdout.write(`network error: ${error.message}\n`);
-                // Network error on attempt 1 likely means no internet
+                process.stdout.write(`NETWORK ERROR: ${error.message}\n`);
                 if (attempt === 1) {
                     throw new Error(`Cannot reach plex.tv - check container network/internet: ${error.message}`);
                 }
