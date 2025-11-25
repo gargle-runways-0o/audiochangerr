@@ -87,16 +87,20 @@ async function pollForToken(pinId, { clientId }) {
             const token = parsed.pin?.auth_token?.[0];
  
             if (token && token.length > 0) {
-                console.log(`Auth token received after ${attempt} attempts`);
+                process.stdout.write(`\nAuth token received after ${attempt} attempts\n`);
                 return token;
             }
  
             if (attempt % 10 === 0) {
-                console.log(`Still waiting for PIN entry (${attempt} attempts, ${Math.floor((Date.now() - startTime) / 1000)}s)...`);
+                process.stdout.write(`Polling: ${attempt} attempts (${Math.floor((Date.now() - startTime) / 1000)}s)\n`);
             }
         } catch (error) {
             if (error.response && error.response.status !== 404) {
-                throw new Error(`Plex.tv PIN poll failed: ${error.response.status} ${error.response.statusText}`);
+                throw new Error(`Plex.tv poll failed: ${error.response.status} ${error.response.statusText}`);
+            }
+            // Network error on attempt 1 likely means no internet
+            if (attempt === 1 && !error.response) {
+                throw new Error(`Cannot reach plex.tv - check container network/internet: ${error.message}`);
             }
             // 404 or network errors - continue polling
         }
