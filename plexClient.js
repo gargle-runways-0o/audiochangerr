@@ -189,7 +189,14 @@ async function fetchManagedUserTokens() {
 }
 
 function getOwnerToken() {
-    return plexApi.defaults.headers['X-Plex-Token'];
+    if (!plexApi) {
+        throw new Error('plexClient not initialized - call init() first');
+    }
+    const token = plexApi.defaults.headers['X-Plex-Token'];
+    if (!token) {
+        throw new Error('Owner token not available - check authentication');
+    }
+    return token;
 }
 
 module.exports = {
