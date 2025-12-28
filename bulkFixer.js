@@ -208,7 +208,14 @@ async function run(config) {
             }
 
             // 3. Fetch items
-            const items = await plexClient.fetchLibraryItems(section.key);
+            // For 'movie' we want type=1 (default usually fits but explicit is good)
+            // For 'show' we want type=4 (Episodes) - otherwise we just get the Show container
+            let fetchType = undefined;
+            if (section.type === 'show') fetchType = 4;
+            // if (section.type === 'movie') fetchType = 1; // optional
+
+            const items = await plexClient.fetchLibraryItems(section.key, fetchType);
+            logger.info(`Found ${items.length} items in ${section.title}`);
             const lastScanTime = state[section.title] || 0;
 
             // 3a. Filter Incremental
