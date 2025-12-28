@@ -56,6 +56,11 @@ webhook:
     max_attempts: 3
     initial_delay_ms: 500
 
+# --- PRE-SELECTION (OPTIONAL) ---
+pre_selection:
+  enabled: false
+  libraries: [] # Empty list = all libraries, or specify names e.g. ["Movies", "TV Shows"]
+
 # --- AUDIO SELECTION RULES (FIRST MATCH WINS) ---
 audio_selector:
   # AC3 5.1 original language, no commentary

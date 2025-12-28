@@ -1,4 +1,6 @@
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 const logger = require('./logger');
 const xml2js = require('xml2js');
 const { retryWithBackoff } = require('./retryHelper');
@@ -8,18 +10,24 @@ let plexApi;
 let clientId;
 let ownerToken; // Module-level variable to store the token
 
+// Keep-Alive Agents
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
+
 function createPlexClient(baseURL, token, client, accept = 'application/json', timeout = 600000) {
     const headers = plexHeaders.create({ token, clientId: client, accept });
     return axios.create({
         baseURL,
         headers,
-        timeout
+        timeout,
+        httpAgent,
+        httpsAgent
     });
 }
 
 function init(config, auth) {
     const timeoutMs = config.plex_api_timeout_seconds * 1000;
-    
+
     clientId = auth.clientId;
     ownerToken = auth.token; // Explicitly store the token string
 
@@ -80,7 +88,7 @@ async function fetchMetadata(ratingKey) {
 
 async function setSelectedAudioStream(partId, streamId, userToken, dry_run) {
     const tokenStatus = userToken ? 'user' : 'owner';
-    
+
     // VERBOSE DEBUG
     logger.debug(`[DEBUG-V] setSelectedAudioStream: Part=${partId}, Stream=${streamId}, Token=${tokenStatus}, UserTokenProvided=${!!userToken}`);
 
@@ -140,11 +148,52 @@ async function getUserDetailsFromXml(xml) {
     }
 }
 
+async function fetchLibraries() {
+    return retryWithBackoff(
+        async () => {
+            try {
+                const response = await plexApi.get('/library/sections');
+                return response.data.MediaContainer.Directory || [];
+            } catch (error) {
+                if (error.response) {
+                    logger.error(`Fetch Libraries: ${error.response.status}`);
+                    throw new Error(`Plex Libraries: ${error.response.status}`);
+                } else {
+                    logger.error(`Fetch Libraries: ${error.message}`);
+                    throw error;
+                }
+            }
+        },
+        3, 1000, 'fetchLibraries'
+    );
+}
+
+async function fetchLibraryItems(sectionId) {
+    return retryWithBackoff(
+        async () => {
+            try {
+                // Fetch all items from the section
+                const response = await plexApi.get(`/library/sections/${sectionId}/all`);
+                return response.data.MediaContainer.Metadata || [];
+            } catch (error) {
+                if (error.response) {
+                    logger.error(`Fetch Items (${sectionId}): ${error.response.status}`);
+                    throw new Error(`Plex Library Items: ${error.response.status}`);
+                } else {
+                    logger.error(`Fetch Items (${sectionId}): ${error.message}`);
+                    throw error;
+                }
+            }
+        },
+        3, 1000, `fetchLibraryItems(${sectionId})`
+    );
+}
+
 async function fetchManagedUserTokens() {
     try {
         // VERBOSE DEBUG
         logger.debug(`[DEBUG-V] fetchManagedUserTokens: Using owner token: ${ownerToken ? 'Yes' : 'NO'}`);
-        
+
         const plexTvApi = createPlexClient('https://plex.tv', ownerToken, clientId, 'application/xml');
         const resourcesResponse = await plexTvApi.get('/api/resources');
         const parser = new xml2js.Parser();
@@ -179,8 +228,8 @@ function getOwnerToken() {
         // Attempt fallback to see if Axios has it (Legacy check)
         const headerToken = plexApi?.defaults?.headers?.['X-Plex-Token'];
         if (headerToken) {
-             logger.debug('[DEBUG-V] Recovered token from Axios headers.');
-             return headerToken;
+            logger.debug('[DEBUG-V] Recovered token from Axios headers.');
+            return headerToken;
         }
         throw new Error('Owner token not available - check authentication');
     }
@@ -197,4 +246,6 @@ module.exports = {
     terminateSession,
     fetchManagedUserTokens,
     getOwnerToken,
+    fetchLibraries,
+    fetchLibraryItems,
 };
