@@ -15,6 +15,7 @@ Detects transcoding sessions → finds compatible audio stream → switches trac
 
 - **Dual modes**: Webhook (Plex Pass or Tautulli, instant) or Polling (no Plex Pass, 0-10s delay)
 - **Multiple webhook sources**: Native Plex webhooks or Tautulli webhooks
+- **Pre-selection**: Bulk update all media at startup (Incremental/Delta sync)
 - **Audio selection rules**: codec, channels, language, keywords
 - **Dry run mode**: test without changes
 - **Docker ready**: published to Docker Hub

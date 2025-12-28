@@ -6,6 +6,7 @@ const webhookServer = require('./webhookServer');
 const webhookProcessor = require('./webhookProcessor');
 const plexAuth = require('./plexAuth');
 const authStorage = require('./authStorage');
+const bulkFixer = require('./bulkFixer');
 const packageJson = require('./package.json');
 
 let config = null;
@@ -154,6 +155,8 @@ async function main() {
         const auth = await ensureAuthenticated(config);
         plexClient.init(config, auth);
         audioFixer.setValidationTimeout(config.validation_timeout_seconds);
+
+        await bulkFixer.run(config);
 
         if (config.mode === 'webhook') {
             startWebhookMode();
