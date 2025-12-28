@@ -168,12 +168,15 @@ async function fetchLibraries() {
     );
 }
 
-async function fetchLibraryItems(sectionId) {
+async function fetchLibraryItems(sectionId, itemType) {
     return retryWithBackoff(
         async () => {
             try {
-                // Fetch all items from the section
-                const response = await plexApi.get(`/library/sections/${sectionId}/all`);
+                // Fetch items, optionally filtering by type (e.g. 4=Episode)
+                const url = `/library/sections/${sectionId}/all`;
+                const params = itemType ? { type: itemType } : {};
+
+                const response = await plexApi.get(url, { params });
                 return response.data.MediaContainer.Metadata || [];
             } catch (error) {
                 if (error.response) {

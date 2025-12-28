@@ -55,7 +55,7 @@ function selectBestAudioStream(mediaInfo, currentStreamId, audioSelectorConfig) 
     const checkLanguage = (stream, rule) => {
         if (!rule.language) return true;
         const ruleLanguage = rule.language.toLowerCase();
-        const streamLanguage = stream.language.toLowerCase();
+        const streamLanguage = stream.language ? stream.language.toLowerCase() : 'und';
 
         if (ruleLanguage === 'original') {
             if (!originalStreamLanguage) {
