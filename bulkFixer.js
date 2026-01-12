@@ -169,6 +169,24 @@ async function processBatch(items, config, users, limit = 5) {
 }
 
 /**
+ * Helper to fetch all target users (Owner + Managed).
+ */
+async function getUsers() {
+    const ownerToken = plexClient.getOwnerToken();
+    const users = [{ id: 'owner', token: ownerToken, username: 'Owner' }];
+
+    try {
+        const managedUsers = await plexClient.fetchManagedUserTokens();
+        if (Array.isArray(managedUsers)) {
+            users.push(...managedUsers);
+        }
+    } catch (e) {
+        logger.warn(`Could not fetch managed users, proceeding with Owner only: ${e.message}`);
+    }
+    return users;
+}
+
+/**
  * Main entry point for bulk processing.
  */
 async function run(config) {
@@ -182,18 +200,7 @@ async function run(config) {
 
     try {
         // 0. Load Users
-        const ownerToken = plexClient.getOwnerToken();
-        const users = [{ id: 'owner', token: ownerToken, username: 'Owner' }];
-
-        try {
-            const managedUsers = await plexClient.fetchManagedUserTokens();
-            if (Array.isArray(managedUsers)) {
-                users.push(...managedUsers);
-            }
-        } catch (e) {
-            logger.warn(`Could not fetch managed users, proceeding with Owner only: ${e.message}`);
-        }
-
+        const users = await getUsers();
         logger.info(`Target Users (${users.length}): ${users.map(u => u.username).join(', ')}`);
 
         // 1. Load State
@@ -277,4 +284,4 @@ async function run(config) {
     }
 }
 
-module.exports = { run };
+module.exports = { run, processItem, getUsers };

@@ -99,7 +99,9 @@ function mapTautulliEvent(eventName) {
         'play': 'media.play',
         'playback.start': 'media.play',
         'resume': 'media.resume',
-        'playback.resume': 'media.resume'
+        'playback.resume': 'media.resume',
+        'created': 'library.new',
+        'recently_added': 'library.new'
     };
 
     return mapping[eventName] || eventName;
