@@ -58,6 +58,29 @@ async function processWebhook(payload, config) {
     try {
         const event = payload.event;
 
+        if (event === 'library.new') {
+            const ratingKey = payload.Metadata?.ratingKey;
+            if (!ratingKey) return;
+            logger.info(`[Webhook] New media added: ${ratingKey} (${payload.Metadata?.title || 'Unknown'})`);
+
+            // Fire-and-forget async processing to not block webhook response
+            (async () => {
+                try {
+                    const users = await require('./bulkFixer').getUsers();
+                    // Fetch full metadata (payload might be partial)
+                    const mediaItem = await plexClient.fetchMetadata(ratingKey);
+
+                    if (mediaItem) {
+                        await require('./bulkFixer').processItem(mediaItem, config, users);
+                    }
+                } catch (err) {
+                    logger.error(`[Webhook] Failed to process new item ${ratingKey}: ${err.message}`);
+                }
+            })();
+            return;
+        }
+
+        // ... existing logic for play/resume ...
         if (!RELEVANT_EVENTS.includes(event)) {
             return;
         }
