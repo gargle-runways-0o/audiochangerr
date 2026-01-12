@@ -74,61 +74,66 @@ function hasCompleteMetadata(item) {
 /**
  * Processes a single media item.
  */
-async function processItem(item, config) {
+/**
+ * Processes a single media item for all target users.
+ */
+async function processItem(item, config, users) {
     const ratingKey = item.ratingKey;
-    try {
-        let mediaInfo = item;
 
-        // Optimization: Use existing data if complete, otherwise fetch
-        if (hasCompleteMetadata(item)) {
-            // logger.debug(`[Opt] Using existing metadata for ${ratingKey}`); 
-        } else {
-            // logger.debug(`[Opt] Fetching full metadata for ${ratingKey}`);
-            mediaInfo = await plexClient.fetchMetadata(ratingKey);
-        }
-
-        // 2. Extract current stream
-        const media = mediaInfo.Media && mediaInfo.Media[0];
-        const part = media && media.Part && media.Part[0];
-
-        if (!part || !part.Stream) {
-            // logger.debug(`Skipping ${ratingKey}: No streams found`); // fast path silence
-            return;
-        }
-
-        const streams = part.Stream;
-        const currentStream = streams.find(s => s.streamType === 2 && s.selected);
-        const currentStreamId = currentStream ? currentStream.id : null;
-
-        // 3. Select best stream
-        const bestStream = audioSelector.selectBestAudioStream(
-            mediaInfo,
-            currentStreamId,
-            config.audio_selector
-        );
-
-        if (!bestStream) return;
-
-        // 4. Compare and Action
-        if (String(bestStream.id) !== String(currentStreamId)) {
-            const partId = safelyGetPartId(mediaInfo);
-            if (!partId) {
-                logger.warn(`Could not get Part ID for ${ratingKey}`);
-                return;
+    for (const user of users) {
+        try {
+            // Must fetch metadata as the specific user to see their selected streams
+            let mediaInfo;
+            try {
+                mediaInfo = await plexClient.fetchMetadata(ratingKey, user.token);
+            } catch (err) {
+                // Squelch 404s or permission errors for specific users (e.g. restrictions)
+                // logger.debug(`[Bulk][${user.username}] Skip ${ratingKey}: ${err.message}`);
+                continue;
             }
 
-            logger.info(`[Bulk] Updating ${mediaInfo.title} (${ratingKey}): ${currentStreamId} -> ${bestStream.id} (${bestStream.codec})`);
+            // 2. Extract current stream
+            const media = mediaInfo.Media && mediaInfo.Media[0];
+            const part = media && media.Part && media.Part[0];
 
-            if (config.dry_run) {
-                logger.info(`[DRY] Would set audio stream to ${bestStream.id}`);
-            } else {
-                await plexClient.setSelectedAudioStream(partId, bestStream.id, null, false);
-                logger.info(`[Bulk] Updated successfully`);
+            if (!part || !part.Stream) {
+                continue;
             }
-        }
 
-    } catch (error) {
-        logger.error(`[Bulk] Failed to process ${ratingKey}: ${error.message}`);
+            const streams = part.Stream;
+            const currentStream = streams.find(s => s.streamType === 2 && s.selected);
+            const currentStreamId = currentStream ? currentStream.id : null;
+
+            // 3. Select best stream
+            const bestStream = audioSelector.selectBestAudioStream(
+                mediaInfo,
+                currentStreamId,
+                config.audio_selector
+            );
+
+            if (!bestStream) continue;
+
+            // 4. Compare and Action
+            if (String(bestStream.id) !== String(currentStreamId)) {
+                const partId = safelyGetPartId(mediaInfo);
+                if (!partId) {
+                    logger.warn(`[Bulk][${user.username}] Could not get Part ID for ${ratingKey}`);
+                    continue;
+                }
+
+                logger.info(`[Bulk][${user.username}] Updating ${mediaInfo.title} (${ratingKey}): ${currentStreamId} -> ${bestStream.id} (${bestStream.codec})`);
+
+                if (config.dry_run) {
+                    logger.info(`[DRY][${user.username}] Would set audio stream to ${bestStream.id}`);
+                } else {
+                    await plexClient.setSelectedAudioStream(partId, bestStream.id, user.token, false);
+                    logger.info(`[Bulk][${user.username}] Updated successfully`);
+                }
+            }
+
+        } catch (error) {
+            logger.error(`[Bulk][${user.username}] Failed to process ${ratingKey}: ${error.message}`);
+        }
     }
 }
 
@@ -136,12 +141,8 @@ async function processItem(item, config) {
  * Native batch processor (concurrency limiter).
  * Processes items array in chunks of 'limit'.
  */
-async function processBatch(items, config, limit = 5) {
+async function processBatch(items, config, users, limit = 5) {
     let index = 0;
-    const results = [];
-
-    // We create 'limit' number of workers
-    // Each worker picks the next item from the shared 'items' array
 
     const worker = async () => {
         while (index < items.length) {
@@ -152,7 +153,7 @@ async function processBatch(items, config, limit = 5) {
             if (item.type !== 'movie' && item.type !== 'episode') continue;
 
             try {
-                await processItem(item, config);
+                await processItem(item, config, users);
             } catch (err) {
                 logger.error(`Worker error on item ${item.ratingKey}: ${err.message}`);
             }
@@ -180,20 +181,35 @@ async function run(config) {
     validateConfig(config);
 
     try {
-        // 0. Load State
+        // 0. Load Users
+        const ownerToken = plexClient.getOwnerToken();
+        const users = [{ id: 'owner', token: ownerToken, username: 'Owner' }];
+
+        try {
+            const managedUsers = await plexClient.fetchManagedUserTokens();
+            if (Array.isArray(managedUsers)) {
+                users.push(...managedUsers);
+            }
+        } catch (e) {
+            logger.warn(`Could not fetch managed users, proceeding with Owner only: ${e.message}`);
+        }
+
+        logger.info(`Target Users (${users.length}): ${users.map(u => u.username).join(', ')}`);
+
+        // 1. Load State
         const state = loadState();
         const newState = { ...state };
         let totalProcessed = 0;
         let totalSkipped = 0;
 
-        // 1. Fetch all libraries
+        // 2. Fetch all libraries
         const sections = await plexClient.fetchLibraries();
         logger.info(`Found ${sections.length} libraries`);
 
         const targetLibNames = config.pre_selection.libraries || [];
         const hasTargetLibs = targetLibNames.length > 0;
 
-        // 2. Iterate libraries
+        // 3. Iterate libraries
         for (const section of sections) {
             if (hasTargetLibs && !targetLibNames.includes(section.title)) {
                 logger.debug(`Skipping library: ${section.title}`);
@@ -207,23 +223,19 @@ async function run(config) {
                 continue;
             }
 
-            // 3. Fetch items
-            // For 'movie' we want type=1 (default usually fits but explicit is good)
-            // For 'show' we want type=4 (Episodes) - otherwise we just get the Show container
+            // 4. Fetch items
             let fetchType = undefined;
             if (section.type === 'show') fetchType = 4;
-            // if (section.type === 'movie') fetchType = 1; // optional
 
             const items = await plexClient.fetchLibraryItems(section.key, fetchType);
             logger.info(`Found ${items.length} items in ${section.title}`);
             const lastScanTime = state[section.title] || 0;
 
-            // 3a. Filter Incremental
+            // 4a. Filter Incremental
             const itemsToProcess = [];
             let maxUpdatedAt = lastScanTime;
 
             for (const item of items) {
-                // Ensure item has updatedAt
                 const updatedAt = item.updatedAt || 0;
                 if (updatedAt > maxUpdatedAt) maxUpdatedAt = updatedAt;
 
@@ -241,15 +253,15 @@ async function run(config) {
                 continue;
             }
 
-            // 4. Process Items (Optimized Batch)
-            await processBatch(itemsToProcess, config, 5); // Hard-coded limit of 5
+            // 5. Process Items (Optimized Batch)
+            await processBatch(itemsToProcess, config, users, 5);
 
             // Update state for this library ONLY if we successfully finished the batch
             newState[section.title] = maxUpdatedAt;
             totalProcessed += itemsToProcess.length;
         }
 
-        // 5. Save State
+        // 6. Save State
         if (!config.dry_run) {
             saveState(newState);
             logger.info('Scan state saved.');
