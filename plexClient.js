@@ -75,8 +75,21 @@ async function fetchMetadata(ratingKey, token = null) {
                 return metadata;
             } catch (error) {
                 if (error.response) {
-                    logger.error(`Metadata ${ratingKey}: ${error.response.status}`);
-                    throw new Error(`Plex metadata: ${error.response.status}`);
+                    const status = error.response.status;
+                    // Don't retry client errors (4xx)
+                    if (status >= 400 && status < 500) {
+                        const err = new Error(`Plex metadata: ${status}`);
+                        err.noRetry = true;
+                        // Log as debug for 404/403 to reduce noise, error for others
+                        if (status === 404 || status === 403) {
+                            logger.debug(`Metadata ${ratingKey}: ${status} (User does not have access?)`);
+                        } else {
+                            logger.error(`Metadata ${ratingKey}: ${status}`);
+                        }
+                        throw err;
+                    }
+                    logger.error(`Metadata ${ratingKey}: ${status}`);
+                    throw new Error(`Plex metadata: ${status}`);
                 } else {
                     logger.error(`Metadata ${ratingKey}: ${error.message}`);
                     throw error;
