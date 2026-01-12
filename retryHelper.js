@@ -12,6 +12,10 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelayMs = 1000, opera
                 throw error;
             }
 
+            if (error.noRetry) {
+                throw error;
+            }
+
             const delayMs = initialDelayMs * Math.pow(2, attempt);
             logger.warn(`${operationName}: retry ${attempt + 1}/${maxRetries} in ${delayMs}ms: ${error.message}`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
