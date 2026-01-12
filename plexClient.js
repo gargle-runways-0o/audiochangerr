@@ -64,11 +64,12 @@ async function fetchSessions() {
     );
 }
 
-async function fetchMetadata(ratingKey) {
+async function fetchMetadata(ratingKey, token = null) {
     return retryWithBackoff(
         async () => {
             try {
-                const response = await plexApi.get(`/library/metadata/${ratingKey}`);
+                const config = token ? { headers: { 'X-Plex-Token': token } } : {};
+                const response = await plexApi.get(`/library/metadata/${ratingKey}`, config);
                 const metadata = response.data.MediaContainer.Metadata[0];
                 if (!metadata) throw new Error(`No metadata found for ratingKey ${ratingKey}`);
                 return metadata;
@@ -135,16 +136,19 @@ async function getUserDetailsFromXml(xml) {
     try {
         const result = await parser.parseStringPromise(xml);
         const sharedServers = result.MediaContainer.SharedServer || [];
-        const extractedData = {};
+        const extractedData = [];
         sharedServers.forEach((server) => {
             const userID = server.$.userID;
             const accessToken = server.$.accessToken;
-            if (userID && accessToken) extractedData[userID] = accessToken;
+            const username = server.$.username || server.$.title || userID;
+            if (userID && accessToken) {
+                extractedData.push({ id: userID, token: accessToken, username });
+            }
         });
         return extractedData;
     } catch (error) {
         logger.error(`XML: ${error.message}`);
-        return {};
+        return [];
     }
 }
 
@@ -208,19 +212,19 @@ async function fetchManagedUserTokens() {
 
         if (!server || !server.$.clientIdentifier) {
             logger.error('No clientIdentifier - check Plex.tv access and server registration');
-            return {};
+            return [];
         }
         const clientIdentifier = server.$.clientIdentifier;
 
         const sharedServersResponse = await plexTvApi.get(`/api/servers/${clientIdentifier}/shared_servers`);
         const managedUserTokens = await getUserDetailsFromXml(sharedServersResponse.data);
 
-        logger.info(`Managed users: ${Object.keys(managedUserTokens).length}`);
+        logger.info(`Managed users: ${managedUserTokens.length}`);
         return managedUserTokens;
 
     } catch (error) {
         logger.error(`Managed tokens error: ${error.message}`);
-        return {};
+        return [];
     }
 }
 
